@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/immutability */
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 import { useEffect, useRef, useState, use } from "react";
 import {
   bearingsLayer,
@@ -19,6 +21,7 @@ import "../App.css";
 import {
   ChartDataRevit,
   construction_status,
+  // contractPackage,
   generateChartData,
   generateTotalProgress,
   layerVisibleTrue,
@@ -28,10 +31,16 @@ import {
 import "@esri/calcite-components/dist/components/calcite-label";
 import "@esri/calcite-components/dist/components/calcite-tabs";
 import "@esri/calcite-components/dist/components/calcite-panel";
-import { CalciteLabel, CalciteTabs } from "@esri/calcite-components-react";
+import "@esri/calcite-components/dist/components/calcite-button";
+import {
+  CalciteLabel,
+  CalciteTabs,
+  CalciteButton,
+} from "@esri/calcite-components-react";
 import { ArcgisScene } from "@arcgis/map-components/dist/components/arcgis-scene";
-import FeatureLayer from "@arcgis/core/layers/FeatureLayer";
+// import FeatureLayer from "@arcgis/core/layers/FeatureLayer";
 import { MyContext } from "../contexts/MyContext";
+import SubLayerView from "@arcgis/core/views/layers/BuildingComponentSublayerView";
 
 // Dispose function
 function maybeDisposeRoot(divId: any) {
@@ -50,8 +59,14 @@ const Chart = () => {
   const chartRef = useRef<unknown | any | undefined>({});
   const [chartData, setChartData] = useState([]);
   const [progress, setProgress] = useState<any>([]);
-  const [selectedFeatureLayer, setSelectedFeaturelayer] =
-    useState<FeatureLayer>();
+  // const [selectedFeatureLayer, setSelectedFeaturelayer] =
+  //   useState<FeatureLayer>();
+  const [sublayerViewFilter, setSublayerViewFilter] = useState<
+    SubLayerView | any
+  >();
+  const [resetButtonClicked, setResetButtonClicked] = useState<boolean>(false);
+  const [categoryClicked, setCategoryClicked] = useState<string>("");
+
   const chartID = "viaduct-bar";
 
   useEffect(() => {
@@ -77,6 +92,14 @@ const Chart = () => {
 
     stationLayer.definitionExpression = "CP = '" + contractpackages + "'";
     zoomToLayer(stationLayer, arcgisScene);
+
+    // const resetChartFilterButton = document.querySelector(
+    //   `[id=filterButton]`,
+    // ) as HTMLDivElement;
+    // // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    // !contractpackages
+    //   ? (resetChartFilterButton.hidden = true)
+    //   : (resetChartFilterButton.hidden = false);
   }, [contractpackages]);
 
   // type
@@ -162,7 +185,7 @@ const Chart = () => {
         paddingBottom: paddingBottom,
         scale: 1,
         height: am5.percent(100),
-      })
+      }),
     );
     chartRef.current = chart;
 
@@ -187,7 +210,7 @@ const Chart = () => {
           });
         },
         tooltip: am5.Tooltip.new(root, {}),
-      })
+      }),
     );
 
     yRenderer.labels.template.setAll({
@@ -220,7 +243,7 @@ const Chart = () => {
           strokeWidth: 1,
           stroke: am5.color("#ffffff"),
         }),
-      })
+      }),
     );
 
     xAxis.get("renderer").labels.template.setAll({
@@ -239,7 +262,7 @@ const Chart = () => {
         marginTop: 20,
         scale: 0.75,
         layout: root.horizontalLayout,
-      })
+      }),
     );
     legendRef.current = legend;
 
@@ -270,7 +293,7 @@ const Chart = () => {
               ? am5.color(chartSeriesFillColorIncomp)
               : am5.color(chartSeriesFillColorComp),
           stroke: am5.color(chartBorderLineColor),
-        })
+        }),
       );
 
       series.columns.template.setAll({
@@ -300,13 +323,45 @@ const Chart = () => {
         });
       });
 
+      const sublayerNames = [
+        {
+          modelName: "StructuralFoundation",
+          category: viatypes[0].category, // pile
+        },
+        {
+          modelName: "StructuralFoundation",
+          category: viatypes[1].category, // pile cap
+        },
+        {
+          modelName: "Piers",
+          category: viatypes[2].category, // pier
+        },
+        {
+          modelName: "Piers",
+          category: viatypes[3].category, // pier head
+        },
+        {
+          modelName: "Decks",
+          category: viatypes[4].category, // precast
+        },
+        {
+          modelName: "Piers",
+          category: viatypes[6].category, // noise barrier
+        },
+        // {
+        //   modelName: "Piers",
+        //   category: viatypes[6].category, // others
+        // },
+      ];
+
       // Click event
       series.columns.template.events.on("click", (ev) => {
         const selected: any = ev.target.dataItem?.dataContext;
         const categorySelected: string = selected.category;
         const find = viatypes.find(
-          (emp: any) => emp.category === categorySelected
+          (emp: any) => emp.category === categorySelected,
         );
+        setCategoryClicked(categorySelected);
         const typeSelected = find?.value;
         const selectedStatus: number | null =
           fieldName === "comp" ? 4 : fieldName === "ongoing" ? 2 : 1;
@@ -335,65 +390,150 @@ const Chart = () => {
             "Status = " +
             selectedStatus;
 
-          if (
-            categorySelected === "Bored Pile" ||
-            categorySelected === "Pile Cap"
-          ) {
-            setSelectedFeaturelayer(stFoundationLayer);
-            stFoundationLayer.definitionExpression = expression_revit;
-            stFoundationLayer.visible = true;
-            stFramingLayer.visible = false;
-            bearingsLayer.visible = false;
-            piersLayer.visible = false;
-            decksLayer.visible = false;
-            specialtyEquipmentLayer.visible = false;
-          } else if (
-            categorySelected === "Pier" ||
-            categorySelected === "Pier Head" ||
-            categorySelected === "Noise Barrier"
-          ) {
-            setSelectedFeaturelayer(piersLayer);
-            piersLayer.definitionExpression = expression_revit;
-            piersLayer.visible = true;
-            stFramingLayer.visible = false;
-            bearingsLayer.visible = false;
-            stFoundationLayer.visible = false;
-            decksLayer.visible = false;
-            specialtyEquipmentLayer.visible = false;
-          } else if (categorySelected === "Precast") {
-            setSelectedFeaturelayer(decksLayer);
-            decksLayer.definitionExpression = expression_revit;
-            decksLayer.visible = true;
-            stFramingLayer.visible = false;
-            bearingsLayer.visible = false;
-            piersLayer.visible = false;
-            stFoundationLayer.visible = false;
-            specialtyEquipmentLayer.visible = false;
-          } else if (categorySelected === "Others") {
-            decksLayer.definitionExpression = expression_revit;
-            bearingsLayer.definitionExpression = expression_revit;
-            piersLayer.definitionExpression = expression_revit;
-            stFoundationLayer.definitionExpression = expression_revit;
-            decksLayer.visible = true;
-            bearingsLayer.visible = true;
-            piersLayer.visible = true;
-            stFoundationLayer.visible = true;
-            stFramingLayer.visible = false; // not part of monitoring
-            specialtyEquipmentLayer.visible = false; // not part of monitoring
-          }
+          // Find sublayer
 
-          arcgisScene?.view.on("click", () => {
-            if (categorySelected === "Others") {
-              decksLayer.definitionExpression = "1=1";
-              bearingsLayer.definitionExpression = "1=1";
-              piersLayer.definitionExpression = "1=1";
-              stFoundationLayer.definitionExpression = "1=1";
+          const selectedSublayerName = sublayerNames.find(
+            (emp: any) => emp.category === categorySelected,
+          )?.modelName;
+
+          const sublayersInvisible = () => {
+            if (
+              categorySelected === viatypes[0].category ||
+              categorySelected === viatypes[1].category
+            ) {
+              stFoundationLayer.definitionExpression = expression_revit;
+              stFoundationLayer.visible = true;
+              stFramingLayer.visible = false;
+              bearingsLayer.visible = false;
+              piersLayer.visible = false;
+              decksLayer.visible = false;
+            } else if (
+              categorySelected === viatypes[2].category ||
+              categorySelected === viatypes[3].category ||
+              categorySelected === viatypes[6].category
+            ) {
+              piersLayer.definitionExpression = expression_revit;
+              piersLayer.visible = true;
+              stFramingLayer.visible = false;
+              bearingsLayer.visible = false;
+              stFoundationLayer.visible = false;
+              decksLayer.visible = false;
+              specialtyEquipmentLayer.visible = false;
+            } else if (categorySelected === viatypes[4].category) {
+              decksLayer.definitionExpression = expression_revit;
+              decksLayer.visible = true;
+              specialtyEquipmentLayer.visible = false;
+              bearingsLayer.visible = false;
+              stFoundationLayer.visible = false;
+              piersLayer.visible = false;
+              stFramingLayer.visible = false;
+            } else if (categorySelected === "Others") {
+              decksLayer.definitionExpression = expression_revit;
+              bearingsLayer.definitionExpression = expression_revit;
+              piersLayer.definitionExpression = expression_revit;
+              stFoundationLayer.definitionExpression = expression_revit;
+              decksLayer.visible = true;
+              bearingsLayer.visible = true;
+              piersLayer.visible = true;
+              stFoundationLayer.visible = true;
+              stFramingLayer.visible = false; // not part of monitoring
+              specialtyEquipmentLayer.visible = false; // not part of monitoring
             }
-            if (selectedFeatureLayer) {
-              selectedFeatureLayer.definitionExpression = "1=1";
-            }
-            layerVisibleTrue();
-          });
+          };
+
+          arcgisScene?.view
+            ?.whenLayerView(buildingLayer)
+            .then((buildingSceneLayerView: any) => {
+              layerVisibleTrue();
+              const sublayerView = buildingSceneLayerView.sublayerViews.find(
+                (sublayerView: any) => {
+                  return (
+                    sublayerView.sublayer.modelName === selectedSublayerName
+                  );
+                },
+              );
+              setSublayerViewFilter(sublayerView);
+              sublayersInvisible();
+
+              const query = sublayerView.createQuery();
+              !sublayerViewFilter
+                ? (query.where = "Status >=1")
+                : (query.where = expression_revit);
+              sublayerViewFilter &&
+                sublayerView.queryFeatures(query).then((results: any) => {
+                  const lengths = results.features;
+                  const rows = lengths.length;
+                  const objID = [];
+                  for (let i = 0; i < rows; i++) {
+                    const obj = results.features[i].attributes.OBJECTID;
+                    objID.push(obj);
+                  }
+
+                  sublayerView.filter = new FeatureFilter({
+                    where: expression_revit,
+                  });
+                });
+            });
+
+          // if (
+          //   categorySelected === "Bored Pile" ||
+          //   categorySelected === "Pile Cap"
+          // ) {
+          //   setSelectedFeaturelayer(stFoundationLayer);
+          //   stFoundationLayer.definitionExpression = expression_revit;
+          //   stFoundationLayer.visible = true;
+          //   stFramingLayer.visible = false;
+          //   bearingsLayer.visible = false;
+          //   piersLayer.visible = false;
+          //   decksLayer.visible = false;
+          //   specialtyEquipmentLayer.visible = false;
+          // } else if (
+          //   categorySelected === "Pier" ||
+          //   categorySelected === "Pier Head" ||
+          //   categorySelected === "Noise Barrier"
+          // ) {
+          //   setSelectedFeaturelayer(piersLayer);
+          //   piersLayer.definitionExpression = expression_revit;
+          //   piersLayer.visible = true;
+          //   stFramingLayer.visible = false;
+          //   bearingsLayer.visible = false;
+          //   stFoundationLayer.visible = false;
+          //   decksLayer.visible = false;
+          //   specialtyEquipmentLayer.visible = false;
+          // } else if (categorySelected === "Precast") {
+          //   setSelectedFeaturelayer(decksLayer);
+          //   decksLayer.definitionExpression = expression_revit;
+          //   decksLayer.visible = true;
+          //   stFramingLayer.visible = false;
+          //   bearingsLayer.visible = false;
+          //   piersLayer.visible = false;
+          //   stFoundationLayer.visible = false;
+          //   specialtyEquipmentLayer.visible = false;
+          // } else if (categorySelected === "Others") {
+          //   decksLayer.definitionExpression = expression_revit;
+          //   bearingsLayer.definitionExpression = expression_revit;
+          //   piersLayer.definitionExpression = expression_revit;
+          //   stFoundationLayer.definitionExpression = expression_revit;
+          //   decksLayer.visible = true;
+          //   bearingsLayer.visible = true;
+          //   piersLayer.visible = true;
+          //   stFoundationLayer.visible = true;
+          //   stFramingLayer.visible = false; // not part of monitoring
+          //   specialtyEquipmentLayer.visible = false; // not part of monitoring
+          // }
+
+          // arcgisScene?.view.on("click", () => {
+          //   if (categorySelected === "Others") {
+          //     decksLayer.definitionExpression = "1=1";
+          //     bearingsLayer.definitionExpression = "1=1";
+          //     piersLayer.definitionExpression = "1=1";
+          //     stFoundationLayer.definitionExpression = "1=1";
+          //   }
+          //   if (selectedFeatureLayer) {
+          //     selectedFeatureLayer.definitionExpression = "1=1";
+          //   }
+          //   layerVisibleTrue();
+          // });
 
           // Other contract packages (multipatch layers)
         } else {
@@ -437,6 +577,20 @@ const Chart = () => {
       root.dispose();
     };
   });
+
+  useEffect(() => {
+    if (sublayerViewFilter) {
+      sublayerViewFilter.filter = new FeatureFilter({
+        where: undefined,
+      });
+      layerVisibleTrue();
+    }
+
+    if (categoryClicked === "Others") {
+      layerVisibleTrue();
+    }
+  }, [resetButtonClicked, categoryClicked]);
+
   const primaryLabelColor = "#9ca3af";
   const valueLabelColor = "#d1d5db";
   return (
@@ -501,6 +655,27 @@ const Chart = () => {
               }}
             />
           </CalciteLabel>
+          {contractpackages === "S-01" && (
+            <div
+              id="filterButton"
+              style={{
+                width: "50%",
+                marginLeft: "30%",
+                // paddingTop: "10%",
+              }}
+            >
+              <CalciteButton
+                iconEnd="reset"
+                onClick={() =>
+                  setResetButtonClicked(
+                    resetButtonClicked === false ? true : false,
+                  )
+                }
+              >
+                Reset Chart Filter
+              </CalciteButton>
+            </div>
+          )}
         </div>
       </CalciteTabs>
     </>

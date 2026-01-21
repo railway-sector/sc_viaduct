@@ -102,6 +102,10 @@ export const viatypes = [
 ];
 
 export const layerVisibleTrue = () => {
+  decksLayer.definitionExpression = "1=1";
+  bearingsLayer.definitionExpression = "1=1";
+  piersLayer.definitionExpression = "1=1";
+  stFoundationLayer.definitionExpression = "1=1";
   stFoundationLayer.visible = true;
   bearingsLayer.visible = true;
   piersLayer.visible = true;
@@ -723,7 +727,7 @@ export async function timeSeriesChartData(contractp: any) {
           piearhead: pierheadCount,
           precast: precastCount,
           atgrade: atgradeCount,
-        }
+        },
       );
     });
     return data;
