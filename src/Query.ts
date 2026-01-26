@@ -403,7 +403,7 @@ export async function ChartDataRevit(contractp: any) {
     deck[4] +
     pierwall[4];
 
-  const progress = (total_comp / total_all) * 100;
+  const progress = ((total_comp / total_all) * 100).toFixed(1);
 
   const data = [
     {
