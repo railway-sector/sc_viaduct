@@ -14,6 +14,10 @@ import {
 } from "./layers";
 import StatisticDefinition from "@arcgis/core/rest/support/StatisticDefinition";
 import Query from "@arcgis/core/rest/support/Query";
+import FeatureLayer from "@arcgis/core/layers/FeatureLayer";
+import SceneLayer from "@arcgis/core/layers/SceneLayer";
+import FeatureFilter from "@arcgis/core/layers/support/FeatureFilter";
+
 export const construction_status = [
   "To be Constructed",
   "Under Construction",
@@ -99,6 +103,37 @@ export const viatypes = [
     category: "Others",
     value: 0,
   },
+];
+
+export const sublayerNames = [
+  {
+    modelName: "StructuralFoundation",
+    category: viatypes[0].category, // pile
+  },
+  {
+    modelName: "StructuralFoundation",
+    category: viatypes[1].category, // pile cap
+  },
+  {
+    modelName: "Piers",
+    category: viatypes[2].category, // pier
+  },
+  {
+    modelName: "Piers",
+    category: viatypes[3].category, // pier head
+  },
+  {
+    modelName: "Decks",
+    category: viatypes[4].category, // precast
+  },
+  {
+    modelName: "Piers",
+    category: viatypes[6].category, // noise barrier
+  },
+  // {
+  //   modelName: "Piers",
+  //   category: viatypes[6].category, // others
+  // },
 ];
 
 export const layerVisibleTrue = () => {
@@ -776,3 +811,116 @@ export async function defineActions(event: any) {
     ? (item.visible = false)
     : (item.visible = true);
 }
+
+// Set invisible layers
+export const s01_sublayersVisibility = (
+  categorySelected: any,
+  expression: any,
+) => {
+  if (
+    categorySelected === viatypes[0].category ||
+    categorySelected === viatypes[1].category
+  ) {
+    stFoundationLayer.definitionExpression = expression;
+    stFoundationLayer.visible = true;
+    stFramingLayer.visible = false;
+    bearingsLayer.visible = false;
+    piersLayer.visible = false;
+    decksLayer.visible = false;
+  } else if (
+    categorySelected === viatypes[2].category ||
+    categorySelected === viatypes[3].category ||
+    categorySelected === viatypes[6].category
+  ) {
+    piersLayer.definitionExpression = expression;
+    piersLayer.visible = true;
+    stFramingLayer.visible = false;
+    bearingsLayer.visible = false;
+    stFoundationLayer.visible = false;
+    decksLayer.visible = false;
+    specialtyEquipmentLayer.visible = false;
+  } else if (categorySelected === viatypes[4].category) {
+    decksLayer.definitionExpression = expression;
+    decksLayer.visible = true;
+    specialtyEquipmentLayer.visible = false;
+    bearingsLayer.visible = false;
+    stFoundationLayer.visible = false;
+    piersLayer.visible = false;
+    stFramingLayer.visible = false;
+  } else if (categorySelected === "Others") {
+    decksLayer.definitionExpression = expression;
+    bearingsLayer.definitionExpression = expression;
+    piersLayer.definitionExpression = expression;
+    stFoundationLayer.definitionExpression = expression;
+    decksLayer.visible = true;
+    bearingsLayer.visible = true;
+    piersLayer.visible = true;
+    stFoundationLayer.visible = true;
+    stFramingLayer.visible = false; // not part of monitoring
+    specialtyEquipmentLayer.visible = false; // not part of monitoring
+  }
+};
+
+// Highlight Layerview query
+type layerViewQueryProps = {
+  pointLayer1?: FeatureLayer;
+  pointLayer2?: FeatureLayer;
+  lineLayer1?: FeatureLayer;
+  lineLayer2?: FeatureLayer;
+  polygonLayer?: FeatureLayer | SceneLayer;
+  qExpression?: any;
+  view: any;
+};
+
+export const highlightSelectedUtil = (
+  featureLayer: any,
+  qExpression: any,
+  view: any,
+) => {
+  const query = featureLayer.createQuery();
+  query.where = qExpression;
+  let highlightSelect: any;
+
+  view?.whenLayerView(featureLayer).then((layerView: any) => {
+    featureLayer?.queryObjectIds(query).then((results: any) => {
+      const objID = results;
+
+      const queryExt = new Query({
+        objectIds: objID,
+      });
+
+      try {
+        featureLayer?.queryExtent(queryExt).then((result: any) => {
+          if (result?.extent) {
+            view?.goTo(result.extent);
+          }
+        });
+      } catch (error) {
+        console.error("Error querying extent for point layer:", error);
+      }
+
+      highlightSelect && highlightSelect.remove();
+      highlightSelect = layerView.highlight(objID);
+    });
+
+    layerView.filter = new FeatureFilter({
+      where: qExpression,
+    });
+
+    // For initial state, we need to add this
+    view?.on("click", () => {
+      layerView.filter = new FeatureFilter({
+        where: undefined,
+      });
+      highlightSelect && highlightSelect.remove();
+    });
+  });
+};
+
+export const polygonViewQueryFeatureHighlight = ({
+  polygonLayer,
+  qExpression,
+  view,
+}: layerViewQueryProps) => {
+  highlightSelectedUtil(polygonLayer, qExpression, view);
+};

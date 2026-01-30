@@ -1,17 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 import { useEffect, useRef, useState, use } from "react";
-import {
-  bearingsLayer,
-  buildingLayer,
-  decksLayer,
-  piersLayer,
-  specialtyEquipmentLayer,
-  stationLayer,
-  stFoundationLayer,
-  stFramingLayer,
-  viaductLayer,
-} from "../layers";
+import { buildingLayer, stationLayer, viaductLayer } from "../layers";
 import FeatureFilter from "@arcgis/core/layers/support/FeatureFilter";
 import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
@@ -25,6 +15,9 @@ import {
   generateChartData,
   generateTotalProgress,
   layerVisibleTrue,
+  polygonViewQueryFeatureHighlight,
+  s01_sublayersVisibility,
+  sublayerNames,
   viatypes,
   zoomToLayer,
 } from "../Query";
@@ -316,37 +309,6 @@ const Chart = () => {
         });
       });
 
-      const sublayerNames = [
-        {
-          modelName: "StructuralFoundation",
-          category: viatypes[0].category, // pile
-        },
-        {
-          modelName: "StructuralFoundation",
-          category: viatypes[1].category, // pile cap
-        },
-        {
-          modelName: "Piers",
-          category: viatypes[2].category, // pier
-        },
-        {
-          modelName: "Piers",
-          category: viatypes[3].category, // pier head
-        },
-        {
-          modelName: "Decks",
-          category: viatypes[4].category, // precast
-        },
-        {
-          modelName: "Piers",
-          category: viatypes[6].category, // noise barrier
-        },
-        // {
-        //   modelName: "Piers",
-        //   category: viatypes[6].category, // others
-        // },
-      ];
-
       // Click event
       series.columns.template.events.on("click", (ev) => {
         const selected: any = ev.target.dataItem?.dataContext;
@@ -358,17 +320,6 @@ const Chart = () => {
         const typeSelected = find?.value;
         const selectedStatus: number | null =
           fieldName === "comp" ? 4 : fieldName === "ongoing" ? 2 : 1;
-
-        const expression =
-          "CP = '" +
-          contractpackages +
-          "'" +
-          " AND " +
-          "Type = " +
-          typeSelected +
-          " AND " +
-          "Status = " +
-          selectedStatus;
 
         // For Revit models
         if (contractpackages === "S-01") {
@@ -384,55 +335,9 @@ const Chart = () => {
             selectedStatus;
 
           // Find sublayer
-
           const selectedSublayerName = sublayerNames.find(
             (emp: any) => emp.category === categorySelected,
           )?.modelName;
-
-          const sublayersInvisible = () => {
-            if (
-              categorySelected === viatypes[0].category ||
-              categorySelected === viatypes[1].category
-            ) {
-              stFoundationLayer.definitionExpression = expression_revit;
-              stFoundationLayer.visible = true;
-              stFramingLayer.visible = false;
-              bearingsLayer.visible = false;
-              piersLayer.visible = false;
-              decksLayer.visible = false;
-            } else if (
-              categorySelected === viatypes[2].category ||
-              categorySelected === viatypes[3].category ||
-              categorySelected === viatypes[6].category
-            ) {
-              piersLayer.definitionExpression = expression_revit;
-              piersLayer.visible = true;
-              stFramingLayer.visible = false;
-              bearingsLayer.visible = false;
-              stFoundationLayer.visible = false;
-              decksLayer.visible = false;
-              specialtyEquipmentLayer.visible = false;
-            } else if (categorySelected === viatypes[4].category) {
-              decksLayer.definitionExpression = expression_revit;
-              decksLayer.visible = true;
-              specialtyEquipmentLayer.visible = false;
-              bearingsLayer.visible = false;
-              stFoundationLayer.visible = false;
-              piersLayer.visible = false;
-              stFramingLayer.visible = false;
-            } else if (categorySelected === "Others") {
-              decksLayer.definitionExpression = expression_revit;
-              bearingsLayer.definitionExpression = expression_revit;
-              piersLayer.definitionExpression = expression_revit;
-              stFoundationLayer.definitionExpression = expression_revit;
-              decksLayer.visible = true;
-              bearingsLayer.visible = true;
-              piersLayer.visible = true;
-              stFoundationLayer.visible = true;
-              stFramingLayer.visible = false; // not part of monitoring
-              specialtyEquipmentLayer.visible = false; // not part of monitoring
-            }
-          };
 
           arcgisScene?.view
             ?.whenLayerView(buildingLayer)
@@ -446,116 +351,30 @@ const Chart = () => {
                 },
               );
               setSublayerViewFilter(sublayerView);
-              sublayersInvisible();
+              s01_sublayersVisibility(categorySelected, expression_revit);
 
-              const query = sublayerView.createQuery();
-              !sublayerViewFilter
-                ? (query.where = "Status >=1")
-                : (query.where = expression_revit);
-              sublayerViewFilter &&
-                sublayerView.queryFeatures(query).then((results: any) => {
-                  const lengths = results.features;
-                  const rows = lengths.length;
-                  const objID = [];
-                  for (let i = 0; i < rows; i++) {
-                    const obj = results.features[i].attributes.OBJECTID;
-                    objID.push(obj);
-                  }
-
-                  sublayerView.filter = new FeatureFilter({
-                    where: expression_revit,
-                  });
+              if (sublayerView) {
+                sublayerView.filter = new FeatureFilter({
+                  where: expression_revit,
                 });
-            });
-
-          // if (
-          //   categorySelected === "Bored Pile" ||
-          //   categorySelected === "Pile Cap"
-          // ) {
-          //   setSelectedFeaturelayer(stFoundationLayer);
-          //   stFoundationLayer.definitionExpression = expression_revit;
-          //   stFoundationLayer.visible = true;
-          //   stFramingLayer.visible = false;
-          //   bearingsLayer.visible = false;
-          //   piersLayer.visible = false;
-          //   decksLayer.visible = false;
-          //   specialtyEquipmentLayer.visible = false;
-          // } else if (
-          //   categorySelected === "Pier" ||
-          //   categorySelected === "Pier Head" ||
-          //   categorySelected === "Noise Barrier"
-          // ) {
-          //   setSelectedFeaturelayer(piersLayer);
-          //   piersLayer.definitionExpression = expression_revit;
-          //   piersLayer.visible = true;
-          //   stFramingLayer.visible = false;
-          //   bearingsLayer.visible = false;
-          //   stFoundationLayer.visible = false;
-          //   decksLayer.visible = false;
-          //   specialtyEquipmentLayer.visible = false;
-          // } else if (categorySelected === "Precast") {
-          //   setSelectedFeaturelayer(decksLayer);
-          //   decksLayer.definitionExpression = expression_revit;
-          //   decksLayer.visible = true;
-          //   stFramingLayer.visible = false;
-          //   bearingsLayer.visible = false;
-          //   piersLayer.visible = false;
-          //   stFoundationLayer.visible = false;
-          //   specialtyEquipmentLayer.visible = false;
-          // } else if (categorySelected === "Others") {
-          //   decksLayer.definitionExpression = expression_revit;
-          //   bearingsLayer.definitionExpression = expression_revit;
-          //   piersLayer.definitionExpression = expression_revit;
-          //   stFoundationLayer.definitionExpression = expression_revit;
-          //   decksLayer.visible = true;
-          //   bearingsLayer.visible = true;
-          //   piersLayer.visible = true;
-          //   stFoundationLayer.visible = true;
-          //   stFramingLayer.visible = false; // not part of monitoring
-          //   specialtyEquipmentLayer.visible = false; // not part of monitoring
-          // }
-
-          // arcgisScene?.view.on("click", () => {
-          //   if (categorySelected === "Others") {
-          //     decksLayer.definitionExpression = "1=1";
-          //     bearingsLayer.definitionExpression = "1=1";
-          //     piersLayer.definitionExpression = "1=1";
-          //     stFoundationLayer.definitionExpression = "1=1";
-          //   }
-          //   if (selectedFeatureLayer) {
-          //     selectedFeatureLayer.definitionExpression = "1=1";
-          //   }
-          //   layerVisibleTrue();
-          // });
-
-          // Other contract packages (multipatch layers)
-        } else {
-          // Define Query
-          const query = viaductLayer.createQuery();
-          query.where = "1=1";
-          arcgisScene?.whenLayerView(viaductLayer).then((layerView: any) => {
-            viaductLayer.queryFeatures(query).then((results: any) => {
-              const lengths = results.features;
-              const rows = lengths.length;
-              const objID = [];
-              for (let i = 0; i < rows; i++) {
-                const obj = results.features[i].attributes.OBJECTID;
-                objID.push(obj);
               }
-              // if (highlightSelect) {
-              //   highlightSelect.remove();
-              // }
-              // highlightSelect = layerView.highlight(objID);
-              arcgisScene?.view.on("click", () => {
-                layerView.filter = new FeatureFilter({
-                  where: undefined,
-                });
-                // highlightSelect.remove();
-              });
             });
-            layerView.filter = new FeatureFilter({
-              where: expression,
-            });
+          // Multipatch layer
+        } else {
+          const expression =
+            "CP = '" +
+            contractpackages +
+            "'" +
+            " AND " +
+            "Type = " +
+            typeSelected +
+            " AND " +
+            "Status = " +
+            selectedStatus;
+          polygonViewQueryFeatureHighlight({
+            polygonLayer: viaductLayer,
+            qExpression: expression,
+            view: arcgisScene?.view,
           });
         }
       });
