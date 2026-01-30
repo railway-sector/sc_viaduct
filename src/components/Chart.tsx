@@ -28,17 +28,10 @@ import {
   viatypes,
   zoomToLayer,
 } from "../Query";
-import "@esri/calcite-components/dist/components/calcite-label";
-import "@esri/calcite-components/dist/components/calcite-tabs";
 import "@esri/calcite-components/dist/components/calcite-panel";
 import "@esri/calcite-components/dist/components/calcite-button";
-import {
-  CalciteLabel,
-  CalciteTabs,
-  CalciteButton,
-} from "@esri/calcite-components-react";
+import { CalciteButton } from "@esri/calcite-components-react";
 import { ArcgisScene } from "@arcgis/map-components/dist/components/arcgis-scene";
-// import FeatureLayer from "@arcgis/core/layers/FeatureLayer";
 import { MyContext } from "../contexts/MyContext";
 import SubLayerView from "@arcgis/core/views/layers/BuildingComponentSublayerView";
 
@@ -595,9 +588,8 @@ const Chart = () => {
   const valueLabelColor = "#d1d5db";
   return (
     <>
-      <CalciteTabs
+      <div
         slot="panel-end"
-        scale="m"
         style={{
           borderStyle: "solid",
           borderRightWidth: 5,
@@ -608,76 +600,80 @@ const Chart = () => {
         }}
       >
         <div
-          id={chartID}
           style={{
-            width: "22vw",
-            height: "64vh",
-            backgroundColor: "rgb(0,0,0,0)",
-            color: "white",
-            marginRight: "10px",
+            display: "flex",
+            marginTop: "3px",
+            marginLeft: "15px",
+            marginRight: "15px",
+            justifyContent: "space-between",
+            marginBottom: "10px",
           }}
         >
-          <div
-            style={{
-              color: primaryLabelColor,
-              fontSize: "1.5rem",
-              marginLeft: "13px",
-              marginTop: "15px",
-              marginBottom: "-10px",
-            }}
-          >
-            Total Progress
-          </div>
-          <CalciteLabel layout="inline">
-            <div
+          <img
+            src="https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_All_Logo.svg"
+            alt="Land Logo"
+            height={"14%"}
+            width={"14%"}
+            style={{ paddingTop: "20px", paddingLeft: "15px" }}
+          />
+          <dl style={{ alignItems: "center" }}>
+            <dt
+              style={{
+                color: primaryLabelColor,
+                fontSize: "1.2rem",
+                marginRight: "35px",
+              }}
+            >
+              TOTAL PROGRESS
+            </dt>
+            <dd
               style={{
                 color: valueLabelColor,
-                fontSize: "2.5rem",
+                fontSize: "1.9rem",
                 fontWeight: "bold",
                 fontFamily: "calibri",
                 lineHeight: "1.2",
-                marginLeft: "20px",
-                marginBottom: "20px",
+                margin: "auto",
               }}
             >
               {progress[2]} %
-            </div>
-            <img
-              src="https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_All_Logo.svg"
-              alt="Utility Logo"
-              height={"55px"}
-              width={"55px"}
-              style={{
-                marginLeft: "auto",
-                marginRight: "15px",
-                display: "flex",
-                marginTop: "-35px",
-              }}
-            />
-          </CalciteLabel>
-          {contractpackages === "S-01" && (
-            <div
-              id="filterButton"
-              style={{
-                width: "50%",
-                marginLeft: "30%",
-                // paddingTop: "10%",
-              }}
-            >
-              <CalciteButton
-                iconEnd="reset"
-                onClick={() =>
-                  setResetButtonClicked(
-                    resetButtonClicked === false ? true : false,
-                  )
-                }
-              >
-                Reset Chart Filter
-              </CalciteButton>
-            </div>
-          )}
+            </dd>
+          </dl>
         </div>
-      </CalciteTabs>
+        <div
+          id={chartID}
+          style={{
+            height: contractpackages === "S-01" ? "65vh" : "70vh",
+            // width: "26vw",
+            backgroundColor: "rgb(0,0,0,0)",
+            color: "white",
+            marginRight: "10px",
+            marginLeft: "20px",
+            marginTop: "10px",
+          }}
+        ></div>
+        {contractpackages === "S-01" && (
+          <div
+            id="filterButton"
+            style={{
+              width: "50%",
+              marginLeft: "30%",
+              marginTop: "10%",
+            }}
+          >
+            <CalciteButton
+              iconEnd="reset"
+              onClick={() =>
+                setResetButtonClicked(
+                  resetButtonClicked === false ? true : false,
+                )
+              }
+            >
+              Reset Chart Filter
+            </CalciteButton>
+          </div>
+        )}
+      </div>
     </>
   );
 };
