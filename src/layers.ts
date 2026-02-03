@@ -362,31 +362,7 @@ export const alignmentGroupLayer = new GroupLayer({
 //   layers: [viaductLayer],
 // });
 
-/* Building Scene Layer for station structures */
-export const buildingLayer = new BuildingSceneLayer({
-  portalItem: {
-    id: "1a0404c00e76438796c536de64248cb2",
-    portal: {
-      url: "https://gis.railway-sector.com/portal",
-    },
-  },
-  legendEnabled: false,
-  title: "Viaduct (S-01)",
-});
-
-// Discipline: Architectural
-export let specialtyEquipmentLayer: null | any;
-
-// Discipline: Structural
-export let stFramingLayer: null | any;
-export let stFoundationLayer: null | any;
-
-// Discipline: Infrastructure
-export let bearingsLayer: null | any;
-export let piersLayer: null | any;
-export let decksLayer: null | any;
-
-export let exteriorShellLayer: null | any;
+// Building Scene Layers ------------------------------
 
 const customContentLot = new CustomContent({
   outFields: ["*"],
@@ -480,6 +456,35 @@ const rendererNotMonitoring = new SimpleRenderer({
   }),
 });
 
+//----------------------------------------------------//
+//----------------------- S-01 -----------------------//
+//----------------------------------------------------//
+/* Building Scene Layer for station structures */
+export const buildingLayer = new BuildingSceneLayer({
+  portalItem: {
+    id: "d700fbaf25b04fe8a921fcfa144cb158",
+    portal: {
+      url: "https://gis.railway-sector.com/portal",
+    },
+  },
+  legendEnabled: false,
+  title: "Viaduct (S-01)",
+});
+
+// Discipline: Architectural
+export let specialtyEquipmentLayer: null | any;
+
+// Discipline: Structural
+export let stFramingLayer: null | any;
+export let stFoundationLayer: null | any;
+
+// Discipline: Infrastructure
+export let bearingsLayer: null | any;
+export let piersLayer: null | any;
+export let decksLayer: null | any;
+
+export let exteriorShellLayer: null | any;
+
 buildingLayer.when(() => {
   buildingLayer.allSublayers.forEach((layer: any) => {
     switch (layer.modelName) {
@@ -534,6 +539,89 @@ buildingLayer.when(() => {
         stFramingLayer.popupTemplate = popupTemplate;
         stFramingLayer.title = "Structural Framing (Not Monitored)";
         stFramingLayer.renderer = rendererNotMonitoring;
+        break;
+
+      default:
+        layer.visible = true;
+    }
+  });
+});
+
+//----------------------------------------------------//
+//----------------------- S-06 -----------------------//
+//----------------------------------------------------//
+export const buildingLayer_s06 = new BuildingSceneLayer({
+  portalItem: {
+    id: "1a0404c00e76438796c536de64248cb2",
+    portal: {
+      url: "https://gis.railway-sector.com/portal",
+    },
+  },
+  legendEnabled: false,
+  title: "Viaduct (S-06)",
+});
+
+// Discipline: Architectural
+export let specialtyEquipmentLayer_s06: null | any;
+
+// Discipline: Structural
+export let stFoundationLayer_s06: null | any;
+
+// Discipline: Infrastructure
+export let bearingsLayer_s06: null | any;
+export let piersLayer_s06: null | any;
+export let decksLayer_s06: null | any;
+
+export let exteriorShellLayer_s06: null | any;
+
+buildingLayer_s06.when(() => {
+  buildingLayer_s06.allSublayers.forEach((layer: any) => {
+    switch (layer.modelName) {
+      case "FullModel":
+        layer.visible = true;
+        break;
+
+      case "Overview":
+        exteriorShellLayer_s06 = layer;
+        exteriorShellLayer_s06.visible = false;
+        exteriorShellLayer_s06.title = "Exterior Shell";
+        break;
+
+      case "SpecialtyEquipment":
+        specialtyEquipmentLayer_s06 = layer;
+        specialtyEquipmentLayer_s06.popupTemplate = popupTemplate;
+        specialtyEquipmentLayer_s06.title =
+          "Specialty Equipment (Not Monitored)";
+        specialtyEquipmentLayer_s06.renderer = rendererNotMonitoring;
+        //excludedLayers
+        break;
+
+      case "Bearings":
+        bearingsLayer_s06 = layer;
+        bearingsLayer_s06.popupTemplate = popupTemplate;
+        bearingsLayer_s06.title = "Bearing";
+        bearingsLayer_s06.renderer = renderer_revit;
+        break;
+
+      case "Piers":
+        piersLayer_s06 = layer;
+        piersLayer_s06.popupTemplate = popupTemplate;
+        piersLayer_s06.title = "Pier Columns";
+        piersLayer_s06.renderer = renderer_revit;
+        break;
+
+      case "Decks":
+        decksLayer_s06 = layer;
+        decksLayer_s06.popupTemplate = popupTemplate;
+        decksLayer_s06.title = "Decks (Precast)";
+        decksLayer_s06.renderer = renderer_revit;
+        break;
+
+      case "StructuralFoundation":
+        stFoundationLayer_s06 = layer;
+        stFoundationLayer_s06.popupTemplate = popupTemplate;
+        stFoundationLayer_s06.title = "Pile / Pile Caps";
+        stFoundationLayer_s06.renderer = renderer_revit;
         break;
 
       default:

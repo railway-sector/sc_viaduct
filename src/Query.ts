@@ -885,19 +885,19 @@ export const highlightSelectedUtil = (
     featureLayer?.queryObjectIds(query).then((results: any) => {
       const objID = results;
 
-      const queryExt = new Query({
-        objectIds: objID,
-      });
+      // const queryExt = new Query({
+      //   objectIds: objID,
+      // });
 
-      try {
-        featureLayer?.queryExtent(queryExt).then((result: any) => {
-          if (result?.extent) {
-            view?.goTo(result.extent);
-          }
-        });
-      } catch (error) {
-        console.error("Error querying extent for point layer:", error);
-      }
+      // try {
+      //   featureLayer?.queryExtent(queryExt).then((result: any) => {
+      //     if (result?.extent) {
+      //       view?.goTo(result.extent);
+      //     }
+      //   });
+      // } catch (error) {
+      //   console.error("Error querying extent for point layer:", error);
+      // }
 
       highlightSelect && highlightSelect.remove();
       highlightSelect = layerView.highlight(objID);

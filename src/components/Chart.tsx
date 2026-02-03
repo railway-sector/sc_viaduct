@@ -45,8 +45,6 @@ const Chart = () => {
   const chartRef = useRef<unknown | any | undefined>({});
   const [chartData, setChartData] = useState([]);
   const [progress, setProgress] = useState<any>([]);
-  // const [selectedFeatureLayer, setSelectedFeaturelayer] =
-  //   useState<FeatureLayer>();
   const [sublayerViewFilter, setSublayerViewFilter] = useState<
     SubLayerView | any
   >();
