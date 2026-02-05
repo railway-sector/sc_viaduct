@@ -312,7 +312,8 @@ export const viaductLayer = new SceneLayer({
   title: "Viaduct",
   labelsVisible: false,
   renderer: viaduct_renderer,
-  definitionExpression: "CP <> 'S-01'",
+  // definitionExpression: "CP <> 'S-01'",
+  definitionExpression: "CP NOT IN ('S-01', 'S-06')",
   popupTemplate: {
     title: "<p>{PierNumber}</p>",
     lastEditInfoEnabled: false,
@@ -552,7 +553,7 @@ buildingLayer.when(() => {
 //----------------------------------------------------//
 export const buildingLayer_s06 = new BuildingSceneLayer({
   portalItem: {
-    id: "1a0404c00e76438796c536de64248cb2",
+    id: "b416e23b26f34ae788ade796c6008566",
     portal: {
       url: "https://gis.railway-sector.com/portal",
     },

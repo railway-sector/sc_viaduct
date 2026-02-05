@@ -17,16 +17,21 @@ import Header from "./components/Header";
 import UndergroundSwitch from "./components/UndergroundSwitch";
 import Chart from "./components/Chart";
 import { contractPackage } from "./Query";
-import { buildingLayer } from "./layers";
+import { buildingLayer, buildingLayer_s06 } from "./layers";
 import { MyContext } from "./contexts/MyContext";
 
 function App() {
   const [loggedInState, setLoggedInState] = useState<boolean>(false);
   const [buildingLayerLoaded, setBuildingLayerLoaded] = useState<any>(); // 'loaded'
+  const [buildingLayerLoaded_s06, setBuildingLayerLoaded_s06] = useState<any>();
 
   useEffect(() => {
     buildingLayer.load().then(() => {
       setBuildingLayerLoaded(buildingLayer.loadStatus);
+    });
+
+    buildingLayer_s06.load().then(() => {
+      setBuildingLayerLoaded_s06(buildingLayer_s06.loadStatus);
     });
   });
 
@@ -61,7 +66,7 @@ function App() {
   }, []);
 
   const [contractpackages, setContractpackages] = useState<any>(
-    contractPackage[0]
+    contractPackage[0],
   );
 
   const updateContractPackage = (newContractpackage: any) => {
@@ -76,7 +81,8 @@ function App() {
               <ActionPanel />
               <UndergroundSwitch />
               <MapDisplay />
-              {buildingLayerLoaded === "loaded" && <Chart />}
+              {(buildingLayerLoaded === "loaded" ||
+                buildingLayerLoaded_s06 === "loaded") && <Chart />}
               <Header />
             </MyContext>
           </CalciteShell>

@@ -1,14 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 import {
-  bearingsLayer,
-  buildingLayer,
+  // buildingLayer,
   dateTable,
-  decksLayer,
   pierNoLayer,
-  piersLayer,
-  specialtyEquipmentLayer,
-  stFoundationLayer,
-  stFramingLayer,
   viaductLayer,
   viaductLayerStatus4,
 } from "./layers";
@@ -17,6 +11,8 @@ import Query from "@arcgis/core/rest/support/Query";
 import FeatureLayer from "@arcgis/core/layers/FeatureLayer";
 import SceneLayer from "@arcgis/core/layers/SceneLayer";
 import FeatureFilter from "@arcgis/core/layers/support/FeatureFilter";
+import BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
+import BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 
 export const construction_status = [
   "To be Constructed",
@@ -136,22 +132,23 @@ export const sublayerNames = [
   // },
 ];
 
-export const layerVisibleTrue = () => {
-  decksLayer.definitionExpression = "1=1";
-  bearingsLayer.definitionExpression = "1=1";
-  piersLayer.definitionExpression = "1=1";
-  stFoundationLayer.definitionExpression = "1=1";
-  stFoundationLayer.visible = true;
-  bearingsLayer.visible = true;
-  piersLayer.visible = true;
-  decksLayer.visible = true;
-  stFramingLayer.visible = false;
-  specialtyEquipmentLayer.visible = false;
-  buildingLayer.visible = true;
+// Generate chart data
+type chartDataType = {
+  stFoundationLayer?: BuildingComponentSublayer;
+  piersLayer?: BuildingComponentSublayer;
+  bearingsLayer?: BuildingComponentSublayer;
+  decksLayer?: BuildingComponentSublayer;
+  contractcp?: string;
 };
 
-export async function ChartDataRevit(contractp: any) {
-  const expression = "CP = '" + contractp + "'";
+export async function chartDataBIM({
+  stFoundationLayer,
+  piersLayer,
+  // bearingsLayer,
+  decksLayer,
+  contractcp,
+}: chartDataType) {
+  const expression = "CP = '" + contractcp + "'";
 
   const total_boredpile_incomp = new StatisticDefinition({
     onStatisticField: "CASE WHEN (Types = 1 and Status = 1) THEN 1 ELSE 0 END",
@@ -213,17 +210,17 @@ export async function ChartDataRevit(contractp: any) {
     statisticType: "sum",
   });
 
-  // const total_atgrade_incomp = new StatisticDefinition({
-  //   onStatisticField: "CASE WHEN (Types = 7 and Status = 1) THEN 1 ELSE 0 END",
-  //   outStatisticFieldName: "total_atgrade_incomp",
-  //   statisticType: "sum",
-  // });
+  const total_atgrade_incomp = new StatisticDefinition({
+    onStatisticField: "CASE WHEN (Types = 7 and Status = 1) THEN 1 ELSE 0 END",
+    outStatisticFieldName: "total_atgrade_incomp",
+    statisticType: "sum",
+  });
 
-  // const total_atgrade_comp = new StatisticDefinition({
-  //   onStatisticField: "CASE WHEN (Types = 7 and Status = 4) THEN 1 ELSE 0 END",
-  //   outStatisticFieldName: "total_atgrade_comp",
-  //   statisticType: "sum",
-  // });
+  const total_atgrade_comp = new StatisticDefinition({
+    onStatisticField: "CASE WHEN (Types = 7 and Status = 4) THEN 1 ELSE 0 END",
+    outStatisticFieldName: "total_atgrade_comp",
+    statisticType: "sum",
+  });
 
   const total_pierwalls_incomp = new StatisticDefinition({
     onStatisticField: "CASE WHEN (Types = 8 and Status = 1) THEN 1 ELSE 0 END",
@@ -258,7 +255,7 @@ export async function ChartDataRevit(contractp: any) {
     total_others_comp,
   ];
 
-  contractp && (query_pile.where = expression);
+  contractcp && (query_pile.where = expression);
   const piles = stFoundationLayer
     ?.queryFeatures(query_pile)
     .then((response: any) => {
@@ -282,7 +279,7 @@ export async function ChartDataRevit(contractp: any) {
     total_others_incomp,
     total_others_comp,
   ];
-  contractp && (query_pilecap.where = expression);
+  contractcp && (query_pilecap.where = expression);
   const pilecaps = stFoundationLayer
     ?.queryFeatures(query_pilecap)
     .then((response: any) => {
@@ -306,7 +303,7 @@ export async function ChartDataRevit(contractp: any) {
     total_others_incomp,
     total_others_comp,
   ];
-  contractp && (query_pier.where = expression);
+  contractcp && (query_pier.where = expression);
   const piers = piersLayer?.queryFeatures(query_pier).then((response: any) => {
     const stats = response.features[0].attributes;
     const incomp = stats.total_pier_incomp;
@@ -328,7 +325,7 @@ export async function ChartDataRevit(contractp: any) {
     total_others_incomp,
     total_others_comp,
   ];
-  contractp && (query_pierhead.where = expression);
+  contractcp && (query_pierhead.where = expression);
   const pierheads = piersLayer
     ?.queryFeatures(query_pierhead)
     .then((response: any) => {
@@ -344,6 +341,49 @@ export async function ChartDataRevit(contractp: any) {
       return [incomp, comp, total, others_incomp, others_comp, total_others];
     });
 
+  // At Grade
+  const query_atgrade = new Query();
+  query_atgrade.outStatistics = [
+    total_atgrade_incomp,
+    total_atgrade_comp,
+    total_others_incomp,
+    total_others_comp,
+  ];
+  contractcp && (query_atgrade.where = expression);
+  const query_at_grade = decksLayer
+    ?.queryFeatures(query_atgrade)
+    .then((response: any) => {
+      const stats = response.features[0].attributes;
+      const incomp = stats.total_atgrade_incomp;
+      const comp = stats.total_atgrade_comp;
+      const total = incomp + comp;
+
+      const others_incomp = stats.total_others_incomp;
+      const others_comp = stats.total_others_comp;
+      const total_others = others_incomp + others_comp;
+
+      return [incomp, comp, total, others_incomp, others_comp, total_others];
+    });
+
+  const query_atgrade2 = new Query();
+  query_atgrade2.outStatistics = [
+    total_atgrade_incomp,
+    total_atgrade_comp,
+    total_others_incomp,
+    total_others_comp,
+  ];
+  contractcp && (query_atgrade2.where = expression);
+  const query_at_grade2 = stFoundationLayer
+    ?.queryFeatures(query_atgrade2)
+    .then((response: any) => {
+      const stats = response.features[0].attributes;
+      const incomp = stats.total_atgrade_incomp;
+      const comp = stats.total_atgrade_comp;
+      const total = incomp + comp;
+
+      return [incomp, comp, total];
+    });
+
   // Decks (precast)
   const query_decks = new Query();
   query_decks.outStatistics = [
@@ -352,7 +392,7 @@ export async function ChartDataRevit(contractp: any) {
     total_others_incomp,
     total_others_comp,
   ];
-  contractp && (query_decks.where = expression);
+  contractcp && (query_decks.where = expression);
   const decks = decksLayer?.queryFeatures(query_decks).then((response: any) => {
     const stats = response.features[0].attributes;
     const incomp = stats.total_decks_incomp;
@@ -374,7 +414,7 @@ export async function ChartDataRevit(contractp: any) {
     total_others_incomp,
     total_others_comp,
   ];
-  contractp && (query_pierwalls.where = expression);
+  contractcp && (query_pierwalls.where = expression);
   const pierwalls = piersLayer
     ?.queryFeatures(query_pierwalls)
     .then((response: any) => {
@@ -390,17 +430,14 @@ export async function ChartDataRevit(contractp: any) {
       return [incomp, comp, total, others_incomp, others_comp, total_others];
     });
 
-  // Others
-  // const query_others = new Query();
-  // query_others.outStatistics = [total_others_incomp, total_others_comp];
-  // contractp && (query_others.where = expression + " AND " + "Types = 0");
-
-  const boredpile = await piles;
-  const pilecap = await pilecaps;
-  const piercolumn = await piers;
-  const pierhead = await pierheads;
-  const deck = await decks;
-  const pierwall = await pierwalls;
+  const boredpile: any = await piles;
+  const pilecap: any = await pilecaps;
+  const piercolumn: any = await piers;
+  const pierhead: any = await pierheads;
+  const atgrade: any = await query_at_grade;
+  const atgrade2: any = await query_at_grade2;
+  const deck: any = await decks;
+  const pierwall: any = await pierwalls;
 
   // Completed total
   const total_comp =
@@ -408,6 +445,8 @@ export async function ChartDataRevit(contractp: any) {
     pilecap[1] +
     piercolumn[1] +
     pierhead[1] +
+    atgrade[1] +
+    atgrade2[1] +
     deck[1] +
     pierwall[1];
 
@@ -417,6 +456,8 @@ export async function ChartDataRevit(contractp: any) {
     pilecap[2] +
     piercolumn[2] +
     pierhead[2] +
+    atgrade[2] +
+    atgrade[2] +
     deck[2] +
     pierwall[2];
 
@@ -427,6 +468,7 @@ export async function ChartDataRevit(contractp: any) {
     pilecap[3] +
     piercolumn[3] +
     pierhead[3] +
+    atgrade[3] +
     deck[3] +
     pierwall[3];
 
@@ -435,6 +477,7 @@ export async function ChartDataRevit(contractp: any) {
     pilecap[4] +
     piercolumn[4] +
     pierhead[4] +
+    atgrade[4] +
     deck[4] +
     pierwall[4];
 
@@ -469,6 +512,12 @@ export async function ChartDataRevit(contractp: any) {
       category: viatypes[4].category,
       comp: deck[1],
       incomp: deck[0],
+      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Precast_Logo.svg",
+    },
+    {
+      category: viatypes[5].category,
+      comp: atgrade[1] + atgrade2[1],
+      incomp: atgrade[0] + atgrade2[0],
       icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Precast_Logo.svg",
     },
     {
@@ -812,52 +861,158 @@ export async function defineActions(event: any) {
     : (item.visible = true);
 }
 
+// Visibility of sublayers
+/// Visibility when CP is changed:
+type layerVisibilityContractcp = {
+  visibleLayers: [
+    SceneLayer | any,
+    BuildingSceneLayer?,
+    BuildingSceneLayer?,
+    BuildingSceneLayer?,
+    BuildingSceneLayer?,
+  ];
+  invisibleLayers: [
+    SceneLayer | any,
+    BuildingSceneLayer?,
+    BuildingSceneLayer?,
+    BuildingSceneLayer?,
+    BuildingSceneLayer?,
+  ];
+};
+
+export const visibilitySublayersContractcp = ({
+  visibleLayers,
+  invisibleLayers,
+}: layerVisibilityContractcp) => {
+  visibleLayers?.map((layer: any) => {
+    layer.visible = true;
+  });
+
+  invisibleLayers.map((layer: any) => {
+    layer.visible = false;
+  });
+};
+
+/// Visibility when layerView is changed in charts:
+type resetSublayersTypeForLayerView = {
+  stFoundationLayer?: BuildingComponentSublayer | any;
+  stFramingLayer?: BuildingComponentSublayer | any;
+  piersLayer?: BuildingComponentSublayer | any;
+  decksLayer?: BuildingComponentSublayer | any;
+  bearingsLayer?: BuildingComponentSublayer | any;
+  specialtyEquipmentLayer?: BuildingComponentSublayer | any;
+  buildingLayer?: BuildingSceneLayer | any;
+  viaductLayer?: SceneLayer | any;
+};
+
+export const resetSublayersInLayerView = ({
+  stFoundationLayer,
+  stFramingLayer,
+  piersLayer,
+  decksLayer,
+  bearingsLayer,
+  specialtyEquipmentLayer,
+  buildingLayer,
+}: resetSublayersTypeForLayerView) => {
+  decksLayer.definitionExpression = "1=1";
+  bearingsLayer.definitionExpression = "1=1";
+  piersLayer.definitionExpression = "1=1";
+  stFoundationLayer.definitionExpression = "1=1";
+  stFoundationLayer.visible = true;
+  bearingsLayer.visible = true;
+  piersLayer.visible = true;
+  decksLayer.visible = true;
+  stFramingLayer.visible = false;
+  specialtyEquipmentLayer.visible = false;
+  buildingLayer.visible = true;
+};
+
 // Set invisible layers
-export const s01_sublayersVisibility = (
-  categorySelected: any,
-  expression: any,
-) => {
-  if (
-    categorySelected === viatypes[0].category ||
-    categorySelected === viatypes[1].category
-  ) {
-    stFoundationLayer.definitionExpression = expression;
-    stFoundationLayer.visible = true;
-    stFramingLayer.visible = false;
-    bearingsLayer.visible = false;
-    piersLayer.visible = false;
-    decksLayer.visible = false;
-  } else if (
-    categorySelected === viatypes[2].category ||
-    categorySelected === viatypes[3].category ||
-    categorySelected === viatypes[6].category
-  ) {
-    piersLayer.definitionExpression = expression;
-    piersLayer.visible = true;
-    stFramingLayer.visible = false;
-    bearingsLayer.visible = false;
-    stFoundationLayer.visible = false;
-    decksLayer.visible = false;
-    specialtyEquipmentLayer.visible = false;
-  } else if (categorySelected === viatypes[4].category) {
-    decksLayer.definitionExpression = expression;
-    decksLayer.visible = true;
-    specialtyEquipmentLayer.visible = false;
-    bearingsLayer.visible = false;
-    stFoundationLayer.visible = false;
-    piersLayer.visible = false;
-    stFramingLayer.visible = false;
-  } else if (categorySelected === "Others") {
-    decksLayer.definitionExpression = expression;
-    bearingsLayer.definitionExpression = expression;
-    piersLayer.definitionExpression = expression;
-    stFoundationLayer.definitionExpression = expression;
-    decksLayer.visible = true;
-    bearingsLayer.visible = true;
-    piersLayer.visible = true;
-    stFoundationLayer.visible = true;
-    stFramingLayer.visible = false; // not part of monitoring
-    specialtyEquipmentLayer.visible = false; // not part of monitoring
+type sublayerVisibilityType = {
+  contractcp: string;
+  categorySelected: string;
+  expression: any;
+  stFoundationLayer?: BuildingComponentSublayer | any;
+  stFramingLayer?: BuildingComponentSublayer | any;
+  piersLayer?: BuildingComponentSublayer | any;
+  decksLayer?: BuildingComponentSublayer | any;
+  bearingsLayer?: BuildingComponentSublayer | any;
+  specialtyEquipmentLayer?: BuildingComponentSublayer | any;
+};
+
+export const sublayersVisibility = ({
+  contractcp,
+  categorySelected,
+  expression,
+  stFoundationLayer,
+  stFramingLayer,
+  piersLayer,
+  decksLayer,
+  bearingsLayer,
+  specialtyEquipmentLayer,
+}: sublayerVisibilityType) => {
+  if (contractcp === "S-01" || contractcp === "S-06") {
+    // Bored Pile & Pile Cap
+    if (
+      categorySelected === viatypes[0].category ||
+      categorySelected === viatypes[1].category
+    ) {
+      stFoundationLayer.definitionExpression = expression;
+      stFoundationLayer.visible = true;
+      stFramingLayer.visible = false;
+      bearingsLayer.visible = false;
+      piersLayer.visible = false;
+      decksLayer.visible = false;
+      specialtyEquipmentLayer.visible = false;
+
+      // Pier Column, Pier Head, and Noiese Barrier (Pier Wall)
+    } else if (
+      categorySelected === viatypes[2].category ||
+      categorySelected === viatypes[3].category ||
+      categorySelected === viatypes[6].category
+    ) {
+      piersLayer.definitionExpression = expression;
+      stFoundationLayer.visible = false;
+      stFramingLayer.visible = false;
+      bearingsLayer.visible = false;
+      piersLayer.visible = true;
+      decksLayer.visible = false;
+      specialtyEquipmentLayer.visible = false;
+
+      // Precast
+    } else if (categorySelected === viatypes[4].category) {
+      decksLayer.definitionExpression = expression;
+      stFoundationLayer.visible = false;
+      stFramingLayer.visible = false;
+      bearingsLayer.visible = false;
+      piersLayer.visible = false;
+      decksLayer.visible = true;
+      specialtyEquipmentLayer.visible = false;
+
+      // At Grade
+    } else if (categorySelected === viatypes[5].category) {
+      stFoundationLayer.definitionExpression = expression;
+      decksLayer.definitionExpression = expression;
+      stFoundationLayer.visible = true;
+      stFramingLayer.visible = false;
+      bearingsLayer.visible = false;
+      piersLayer.visible = false;
+      decksLayer.visible = true;
+      specialtyEquipmentLayer.visible = false;
+
+      // Others
+    } else if (categorySelected === "Others") {
+      decksLayer.definitionExpression = expression;
+      bearingsLayer.definitionExpression = expression;
+      piersLayer.definitionExpression = expression;
+      stFoundationLayer.definitionExpression = expression;
+      decksLayer.visible = true;
+      bearingsLayer.visible = true;
+      piersLayer.visible = true;
+      stFoundationLayer.visible = true;
+      stFramingLayer.visible = false; // not part of monitoring
+      specialtyEquipmentLayer.visible = false; // not part of monitoring
+    }
   }
 };
 

@@ -1,7 +1,24 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/immutability */
-/* eslint-disable @typescript-eslint/no-unused-expressions */
+
 import { useEffect, useRef, useState, use } from "react";
-import { buildingLayer, stationLayer, viaductLayer } from "../layers";
+import {
+  bearingsLayer,
+  bearingsLayer_s06,
+  buildingLayer,
+  buildingLayer_s06,
+  decksLayer,
+  decksLayer_s06,
+  piersLayer,
+  piersLayer_s06,
+  specialtyEquipmentLayer,
+  specialtyEquipmentLayer_s06,
+  stationLayer,
+  stFoundationLayer,
+  stFoundationLayer_s06,
+  stFramingLayer,
+  viaductLayer,
+} from "../layers";
 import FeatureFilter from "@arcgis/core/layers/support/FeatureFilter";
 import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
@@ -9,17 +26,18 @@ import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
 import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
 import "../App.css";
 import {
-  ChartDataRevit,
+  chartDataBIM,
   construction_status,
   // contractPackage,
   generateChartData,
   generateTotalProgress,
-  layerVisibleTrue,
+  resetSublayersInLayerView,
   polygonViewQueryFeatureHighlight,
-  s01_sublayersVisibility,
+  sublayersVisibility,
   sublayerNames,
   viatypes,
   zoomToLayer,
+  visibilitySublayersContractcp,
 } from "../Query";
 import "@esri/calcite-components/dist/components/calcite-panel";
 import "@esri/calcite-components/dist/components/calcite-button";
@@ -27,6 +45,8 @@ import { CalciteButton } from "@esri/calcite-components-react";
 import { ArcgisScene } from "@arcgis/map-components/dist/components/arcgis-scene";
 import { MyContext } from "../contexts/MyContext";
 import SubLayerView from "@arcgis/core/views/layers/BuildingComponentSublayerView";
+import BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
+import BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
 
 // Dispose function
 function maybeDisposeRoot(divId: any) {
@@ -51,20 +71,83 @@ const Chart = () => {
   const [resetButtonClicked, setResetButtonClicked] = useState<boolean>(false);
   const [categoryClicked, setCategoryClicked] = useState<string>("");
 
+  // Create useStates
+  const [buildingSceneLayer, setBuildingSceneLayer] =
+    useState<BuildingSceneLayer>(buildingLayer);
+
+  const [foundationSublayer, setFoundationSublayer] =
+    useState<BuildingComponentSublayer>(stFoundationLayer);
+  const [framingSublayer, setFramingSublayer] =
+    useState<BuildingComponentSublayer>(stFramingLayer);
+  const [bearingSublayer, setBearingSublayer] =
+    useState<BuildingComponentSublayer>(bearingsLayer);
+  const [piersSublayer, setPiersSublayer] =
+    useState<BuildingComponentSublayer>(piersLayer);
+  const [decksSublayer, setDecksSublayer] =
+    useState<BuildingComponentSublayer>(decksLayer);
+  const [specialtyEquipmentSublayer, setSpecialtyEquipmentSublayer] =
+    useState<BuildingComponentSublayer>(specialtyEquipmentLayer);
+
+  // Chart
   const chartID = "viaduct-bar";
 
   useEffect(() => {
+    // S-01
     if (contractpackages === "S-01") {
-      viaductLayer.visible = false;
-      buildingLayer.visible = true;
+      setFoundationSublayer(stFoundationLayer);
+      setFramingSublayer(stFramingLayer);
+      setBearingSublayer(bearingsLayer);
+      setPiersSublayer(piersLayer);
+      setDecksSublayer(decksLayer);
+      setSpecialtyEquipmentSublayer(specialtyEquipmentLayer);
+      setBuildingSceneLayer(buildingLayer);
 
-      ChartDataRevit(contractpackages).then((response: any) => {
+      visibilitySublayersContractcp({
+        visibleLayers: [buildingLayer],
+        invisibleLayers: [viaductLayer, buildingLayer_s06],
+      });
+
+      chartDataBIM({
+        stFoundationLayer,
+        piersLayer,
+        decksLayer,
+        contractcp: contractpackages,
+      }).then((response: any) => {
         setChartData(response[0]);
         setProgress(response);
       });
+
+      // S-06
+    } else if (contractpackages === "S-06") {
+      setFoundationSublayer(stFoundationLayer_s06);
+      setBearingSublayer(bearingsLayer_s06);
+      setPiersSublayer(piersLayer_s06);
+      setDecksSublayer(decksLayer_s06);
+      setSpecialtyEquipmentSublayer(specialtyEquipmentLayer_s06);
+      setBuildingSceneLayer(buildingLayer_s06);
+
+      visibilitySublayersContractcp({
+        visibleLayers: [buildingLayer_s06],
+        invisibleLayers: [viaductLayer, buildingLayer],
+      });
+
+      chartDataBIM({
+        stFoundationLayer: stFoundationLayer_s06,
+        piersLayer: piersLayer_s06,
+        decksLayer: decksLayer_s06,
+        contractcp: contractpackages,
+      }).then((response: any) => {
+        setChartData(response[0]);
+        setProgress(response);
+      });
+
+      // Multipatch Layer
     } else {
-      buildingLayer.visible = false;
-      viaductLayer.visible = true;
+      visibilitySublayersContractcp({
+        visibleLayers: [viaductLayer],
+        invisibleLayers: [buildingLayer_s06, buildingLayer],
+      });
+
       generateChartData(contractpackages).then((response: any) => {
         setChartData(response);
       });
@@ -320,7 +403,8 @@ const Chart = () => {
           fieldName === "comp" ? 4 : fieldName === "ongoing" ? 2 : 1;
 
         // For Revit models
-        if (contractpackages === "S-01") {
+        if (contractpackages === "S-01" || contractpackages === "S-06") {
+          // Query expression
           const expression_revit =
             "CP = '" +
             contractpackages +
@@ -338,9 +422,8 @@ const Chart = () => {
           )?.modelName;
 
           arcgisScene?.view
-            ?.whenLayerView(buildingLayer)
+            ?.whenLayerView(buildingSceneLayer)
             .then((buildingSceneLayerView: any) => {
-              layerVisibleTrue();
               const sublayerView = buildingSceneLayerView.sublayerViews.find(
                 (sublayerView: any) => {
                   return (
@@ -349,7 +432,17 @@ const Chart = () => {
                 },
               );
               setSublayerViewFilter(sublayerView);
-              s01_sublayersVisibility(categorySelected, expression_revit);
+              sublayersVisibility({
+                contractcp: contractpackages,
+                categorySelected: categorySelected,
+                expression: expression_revit,
+                stFoundationLayer: foundationSublayer,
+                stFramingLayer: framingSublayer,
+                piersLayer: piersSublayer,
+                bearingsLayer: bearingSublayer,
+                decksLayer: decksSublayer,
+                specialtyEquipmentLayer: specialtyEquipmentSublayer,
+              });
 
               if (sublayerView) {
                 sublayerView.filter = new FeatureFilter({
@@ -393,11 +486,27 @@ const Chart = () => {
       sublayerViewFilter.filter = new FeatureFilter({
         where: undefined,
       });
-      layerVisibleTrue();
+      resetSublayersInLayerView({
+        stFoundationLayer: foundationSublayer,
+        stFramingLayer: framingSublayer,
+        piersLayer: piersSublayer,
+        decksLayer: decksSublayer,
+        bearingsLayer: bearingSublayer,
+        specialtyEquipmentLayer: specialtyEquipmentSublayer,
+        buildingLayer: buildingSceneLayer,
+      });
     }
 
     if (categoryClicked === "Others") {
-      layerVisibleTrue();
+      resetSublayersInLayerView({
+        stFoundationLayer: foundationSublayer,
+        stFramingLayer: framingSublayer,
+        piersLayer: piersSublayer,
+        decksLayer: decksSublayer,
+        bearingsLayer: bearingSublayer,
+        specialtyEquipmentLayer: specialtyEquipmentSublayer,
+        buildingLayer: buildingSceneLayer,
+      });
     }
   }, [resetButtonClicked, categoryClicked]);
 
@@ -460,22 +569,22 @@ const Chart = () => {
         <div
           id={chartID}
           style={{
-            height: contractpackages === "S-01" ? "65vh" : "70vh",
+            height: contractpackages === "S-01" ? "68vh" : "70vh",
             // width: "26vw",
             backgroundColor: "rgb(0,0,0,0)",
             color: "white",
             marginRight: "10px",
-            marginLeft: "20px",
+            marginLeft: "10px",
             marginTop: "10px",
           }}
         ></div>
-        {contractpackages === "S-01" && (
+        {(contractpackages === "S-01" || contractpackages === "S-06") && (
           <div
             id="filterButton"
             style={{
               width: "50%",
               marginLeft: "30%",
-              marginTop: "10%",
+              marginTop: contractpackages === "S-01" ? "5%" : "2%",
             }}
           >
             <CalciteButton
