@@ -159,39 +159,7 @@ const Chart = () => {
 
     stationLayer.definitionExpression = "CP = '" + contractpackages + "'";
     zoomToLayer(stationLayer, arcgisScene);
-
-    // const resetChartFilterButton = document.querySelector(
-    //   `[id=filterButton]`,
-    // ) as HTMLDivElement;
-    // // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    // !contractpackages
-    //   ? (resetChartFilterButton.hidden = true)
-    //   : (resetChartFilterButton.hidden = false);
   }, [contractpackages]);
-
-  // type
-  // const types = [
-  //   {
-  //     category: "Bored Pile",
-  //     value: 1,
-  //   },
-  //   {
-  //     category: "Pile Cap",
-  //     value: 2,
-  //   },
-  //   {
-  //     category: "Pier",
-  //     value: 3,
-  //   },
-  //   {
-  //     category: "Pier Head",
-  //     value: 4,
-  //   },
-  //   {
-  //     category: "Precast",
-  //     value: 5,
-  //   },
-  // ];
 
   // Define parameters
   const marginTop = 0;
@@ -482,6 +450,7 @@ const Chart = () => {
   });
 
   useEffect(() => {
+    console.log(categoryClicked);
     if (sublayerViewFilter) {
       sublayerViewFilter.filter = new FeatureFilter({
         where: undefined,
@@ -497,7 +466,7 @@ const Chart = () => {
       });
     }
 
-    if (categoryClicked === "Others") {
+    if (categoryClicked === "Others" || categoryClicked === "At-Grade") {
       resetSublayersInLayerView({
         stFoundationLayer: foundationSublayer,
         stFramingLayer: framingSublayer,
@@ -508,7 +477,7 @@ const Chart = () => {
         buildingLayer: buildingSceneLayer,
       });
     }
-  }, [resetButtonClicked, categoryClicked]);
+  }, [resetButtonClicked]);
 
   const primaryLabelColor = "#9ca3af";
   const valueLabelColor = "#d1d5db";

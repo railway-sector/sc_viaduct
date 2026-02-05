@@ -863,7 +863,7 @@ export async function defineActions(event: any) {
 
 // Visibility of sublayers
 /// Visibility when CP is changed:
-type layerVisibilityContractcp = {
+type layerVisibilityContractcpType = {
   visibleLayers: [
     SceneLayer | any,
     BuildingSceneLayer?,
@@ -883,7 +883,7 @@ type layerVisibilityContractcp = {
 export const visibilitySublayersContractcp = ({
   visibleLayers,
   invisibleLayers,
-}: layerVisibilityContractcp) => {
+}: layerVisibilityContractcpType) => {
   visibleLayers?.map((layer: any) => {
     layer.visible = true;
   });
