@@ -1,1 +1,0 @@
-import{jq as f,jr as r}from"./index-DH3BihQz.js";function n(u,e){return e.push(u.buffer),{buffer:u.buffer,layout:new f(u.layout)}}function o(u){return new r(u.layout).createView(u.buffer)}export{o as t,n as u};
