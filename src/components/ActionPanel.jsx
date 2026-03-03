@@ -16,30 +16,50 @@ import "@arcgis/map-components/components/arcgis-layer-list";
 import "@arcgis/map-components/components/arcgis-legend";
 import "@arcgis/map-components/components/arcgis-direct-line-measurement-3d";
 import "@arcgis/map-components/components/arcgis-area-measurement-3d";
-import { defineActions } from "../Query";
+import { defineActions, layersTimeSliderReset } from "../Query";
+import TimeSlider from "./TimeSlider";
+import {
+  bearingsLayer,
+  decksLayer,
+  piersLayer,
+  specialtyEquipmentLayer,
+  stFoundationLayer,
+  stFramingLayer,
+} from "../layers";
 
 function ActionPanel() {
   const [activeWidget, setActiveWidget] = useState(null);
   const [nextWidget, setNextWidget] = useState(null);
+  const timeSlider = document.querySelector("arcgis-time-slider");
 
   const directLineMeasure = document.querySelector(
-    "arcgis-direct-line-measurement-3d"
+    "arcgis-direct-line-measurement-3d",
   );
 
   useEffect(() => {
     if (activeWidget) {
       const actionActiveWidget = document.querySelector(
-        `[data-panel-id=${activeWidget}]`
+        `[data-panel-id=${activeWidget}]`,
       );
       actionActiveWidget.hidden = true;
       directLineMeasure
         ? directLineMeasure.clear()
         : console.log("Line measure is cleared");
+
+      if (timeSlider) {
+        timeSlider.timeExtent = null;
+        layersTimeSliderReset(stFoundationLayer, "DocUpdate", "2026-3-1");
+        layersTimeSliderReset(piersLayer, "DocUpdate", "2026-3-1");
+        layersTimeSliderReset(bearingsLayer, "DocUpdate", "2026-3-1");
+        layersTimeSliderReset(specialtyEquipmentLayer, "DocUpdate", "2026-3-1");
+        layersTimeSliderReset(decksLayer, "DocUpdate", "2026-3-1");
+        layersTimeSliderReset(stFramingLayer, "DocUpdate", "2026-3-1");
+      }
     }
 
     if (nextWidget !== activeWidget) {
       const actionNextWidget = document.querySelector(
-        `[data-panel-id=${nextWidget}]`
+        `[data-panel-id=${nextWidget}]`,
       );
       actionNextWidget.hidden = false;
     }
@@ -92,6 +112,17 @@ function ActionPanel() {
             icon="measure-line"
             text="Line Measurement"
             id="directline-measure"
+            onClick={(event) => {
+              setNextWidget(event.target.id);
+              setActiveWidget(nextWidget === activeWidget ? null : nextWidget);
+            }}
+          ></CalciteAction>
+
+          <CalciteAction
+            data-action-id="timeslider"
+            icon="sliders-horizontal"
+            text="Handed-Over Lots"
+            id="timeslider"
             onClick={(event) => {
               setNextWidget(event.target.id);
               setActiveWidget(nextWidget === activeWidget ? null : nextWidget);
@@ -152,6 +183,13 @@ function ActionPanel() {
           ></arcgis-direct-line-measurement-3d>
         </CalcitePanel>
 
+        <CalcitePanel
+          class="timeslider"
+          height="l"
+          data-panel-id="timeslider"
+          hidden
+        ></CalcitePanel>
+
         <CalcitePanel heading="Description" data-panel-id="information" hidden>
           {nextWidget === "information" ? (
             <div style={{ paddingLeft: "20px" }}>
@@ -178,6 +216,10 @@ function ActionPanel() {
           )}
         </CalcitePanel>
       </CalciteShellPanel>
+
+      {nextWidget === "timeslider" && nextWidget !== activeWidget && (
+        <TimeSlider />
+      )}
     </>
   );
 }

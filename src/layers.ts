@@ -95,7 +95,7 @@ const pierNoLabelClass = new LabelClass({
     verticalOffset: {
       screenLength: 40,
       maxWorldLength: 100,
-      minWorldLength: 20,
+      minWorldLength: 40,
     },
     callout: {
       type: "line", // autocasts as new LineCallout3D()
@@ -463,7 +463,7 @@ const rendererNotMonitoring = new SimpleRenderer({
 /* Building Scene Layer for station structures */
 export const buildingLayer = new BuildingSceneLayer({
   portalItem: {
-    id: "d700fbaf25b04fe8a921fcfa144cb158",
+    id: "5827fee320924214999b7982ae648048",
     portal: {
       url: "https://gis.railway-sector.com/portal",
     },

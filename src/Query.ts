@@ -1079,3 +1079,12 @@ export const polygonViewQueryFeatureHighlight = ({
 }: layerViewQueryProps) => {
   highlightSelectedUtil(polygonLayer, qExpression, view);
 };
+
+// Timeslider reset
+export function layersTimeSliderReset(
+  layer: any,
+  field_name: any,
+  new_date: any,
+) {
+  layer.definitionExpression = `${field_name} <= date '${new_date}'`;
+}

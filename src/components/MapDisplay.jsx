@@ -11,12 +11,14 @@ import "@arcgis/map-components/components/arcgis-expand";
 import "@arcgis/map-components/components/arcgis-placement";
 import "@arcgis/map-components/components/arcgis-legend";
 import "@arcgis/map-components/components/arcgis-compass";
+import "@arcgis/map-components/components/arcgis-time-slider";
 import {
   alignmentGroupLayer,
   buildingLayer,
   buildingLayer_s06,
   stationLayer,
   viaductLayer,
+  stFoundationLayer,
 } from "../layers";
 import { MyContext } from "../contexts/MyContext";
 
@@ -24,23 +26,22 @@ function MapDisplay() {
   const [sceneView, setSceneView] = useState();
   const arcgisScene = document.querySelector("arcgis-scene");
   const { contractpackages } = use(MyContext);
+  const timeSlider = document.querySelector("arcgis-time-slider");
 
-  useEffect(() => {
-    if (sceneView) {
-      arcgisScene.map.add(buildingLayer);
-      // arcgisScene.map.add(buildingLayer_s06);
-      arcgisScene.map.add(viaductLayer);
-      arcgisScene.map.add(alignmentGroupLayer);
-      arcgisScene.map.add(stationLayer);
-      arcgisScene.map.ground.navigationConstraint = "none";
-      arcgisScene.view.environment.atmosphereEnabled = false;
-      arcgisScene.view.environment.starsEnabled = false;
-      arcgisScene.view.ui.components = [];
-      arcgisScene.map.ground.opacity = 0.7;
+  arcgisScene?.viewOnReady(() => {
+    arcgisScene.map.add(buildingLayer);
+    // arcgisScene.map.add(buildingLayer_s06);
+    arcgisScene.map.add(viaductLayer);
+    arcgisScene.map.add(alignmentGroupLayer);
+    arcgisScene.map.add(stationLayer);
+    arcgisScene.map.ground.navigationConstraint = "none";
+    arcgisScene.view.environment.atmosphereEnabled = false;
+    arcgisScene.view.environment.starsEnabled = false;
+    arcgisScene.view.ui.components = [];
+    arcgisScene.map.ground.opacity = 0.7;
 
-      if (contractpackages === "S-06") {
-        arcgisScene.map.add(buildingLayer_s06);
-      }
+    if (contractpackages === "S-06") {
+      arcgisScene.map.add(buildingLayer_s06);
     }
   });
 

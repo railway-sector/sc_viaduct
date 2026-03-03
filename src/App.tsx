@@ -76,7 +76,9 @@ function App() {
     <>
       {loggedInState === true ? (
         <div>
-          <CalciteShell>
+          <CalciteShell
+            style={{ scrollbarWidth: "thin", scrollbarColor: "#888 #555" }}
+          >
             <MyContext value={{ contractpackages, updateContractPackage }}>
               <ActionPanel />
               <UndergroundSwitch />
