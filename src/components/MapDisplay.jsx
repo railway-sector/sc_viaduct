@@ -1,4 +1,4 @@
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import "../index.css";
 import "../App.css";
 import "@arcgis/map-components/dist/components/arcgis-scene";
@@ -11,37 +11,60 @@ import "@arcgis/map-components/components/arcgis-expand";
 import "@arcgis/map-components/components/arcgis-placement";
 import "@arcgis/map-components/components/arcgis-legend";
 import "@arcgis/map-components/components/arcgis-compass";
-import "@arcgis/map-components/components/arcgis-time-slider";
+import "@arcgis/map-components/components/arcgis-search";
 import {
   alignmentGroupLayer,
+  bearingsLayer,
   buildingLayer,
-  buildingLayer_s06,
+  decksLayer,
+  piersLayer,
+  specialtyEquipmentLayer,
   stationLayer,
-  viaductLayer,
   stFoundationLayer,
+  stFramingLayer,
+  viaductLayer,
 } from "../layers";
-import { MyContext } from "../contexts/MyContext";
 
 function MapDisplay() {
   const [sceneView, setSceneView] = useState();
   const arcgisScene = document.querySelector("arcgis-scene");
-  const { contractpackages } = use(MyContext);
-  const timeSlider = document.querySelector("arcgis-time-slider");
+  const arcgisSearch = document.querySelector("arcgis-search");
 
-  arcgisScene?.viewOnReady(() => {
-    arcgisScene.map.add(buildingLayer);
-    // arcgisScene.map.add(buildingLayer_s06);
-    arcgisScene.map.add(viaductLayer);
-    arcgisScene.map.add(alignmentGroupLayer);
-    arcgisScene.map.add(stationLayer);
-    arcgisScene.map.ground.navigationConstraint = "none";
-    arcgisScene.view.environment.atmosphereEnabled = false;
-    arcgisScene.view.environment.starsEnabled = false;
-    arcgisScene.view.ui.components = [];
-    arcgisScene.map.ground.opacity = 0.7;
+  useEffect(() => {
+    if (sceneView) {
+      arcgisScene.map.add(buildingLayer);
+      arcgisScene.map.add(viaductLayer);
+      arcgisScene.map.add(alignmentGroupLayer);
+      arcgisScene.map.add(stationLayer);
+      arcgisScene.map.ground.navigationConstraint = "none";
+      arcgisScene.view.environment.atmosphereEnabled = false;
+      arcgisScene.view.environment.starsEnabled = false;
+      arcgisScene.view.ui.components = [];
+      arcgisScene.map.ground.opacity = 0.7;
 
-    if (contractpackages === "S-06") {
-      arcgisScene.map.add(buildingLayer_s06);
+      arcgisSearch.sources = [
+        {
+          layer: viaductLayer,
+          searchFields: ["PierNumber"],
+          displayField: "PierNumber",
+          exactMatch: false,
+          outFields: ["PierNumber"],
+          name: "Pier Number",
+          placeholder: "example: P-1011",
+        },
+        {
+          layer: viaductLayer,
+          searchFields: ["uniqueID"],
+          displayField: "uniqueID",
+          exactMatch: false,
+          outFields: ["uniqueID"],
+          name: "uniqueID",
+          placeholder: "example: 12345",
+        },
+      ];
+
+      arcgisSearch.includeDefaultSourcesDisabled = true;
+      arcgisSearch.locationDisabled = true;
     }
   });
 
@@ -59,6 +82,9 @@ function MapDisplay() {
     >
       <arcgis-compass slot="top-right"></arcgis-compass>
       <arcgis-zoom slot="bottom-right"></arcgis-zoom>
+      <arcgis-expand close-on-esc slot="top-right" mode="floating">
+        <arcgis-search></arcgis-search>
+      </arcgis-expand>
     </arcgis-scene>
   );
 }

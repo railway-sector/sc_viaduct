@@ -1,21 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/immutability */
-
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 import { useEffect, useRef, useState, use } from "react";
 import {
   bearingsLayer,
-  bearingsLayer_s06,
   buildingLayer,
-  buildingLayer_s06,
   decksLayer,
-  decksLayer_s06,
   piersLayer,
-  piersLayer_s06,
-  specialtyEquipmentLayer,
-  specialtyEquipmentLayer_s06,
   stationLayer,
   stFoundationLayer,
-  stFoundationLayer_s06,
   stFramingLayer,
   viaductLayer,
 } from "../layers";
@@ -26,18 +18,11 @@ import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
 import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
 import "../App.css";
 import {
-  chartDataBIM,
-  construction_status,
-  // contractPackage,
-  generateChartData,
-  generateTotalProgress,
-  resetSublayersInLayerView,
-  polygonViewQueryFeatureHighlight,
-  sublayersVisibility,
-  sublayerNames,
-  viatypes,
+  chartDataForMultipatch,
+  chartDataForRevit,
+  chartRenderer,
+  layersRevitVisibility,
   zoomToLayer,
-  visibilitySublayersContractcp,
 } from "../Query";
 import "@esri/calcite-components/dist/components/calcite-panel";
 import "@esri/calcite-components/dist/components/calcite-button";
@@ -45,8 +30,7 @@ import { CalciteButton } from "@esri/calcite-components-react";
 import { ArcgisScene } from "@arcgis/map-components/dist/components/arcgis-scene";
 import { MyContext } from "../contexts/MyContext";
 import SubLayerView from "@arcgis/core/views/layers/BuildingComponentSublayerView";
-import BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
-import BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
+import { viaductStatusColorForChart, viatypes } from "../uniqueValues";
 
 // Dispose function
 function maybeDisposeRoot(divId: any) {
@@ -59,7 +43,13 @@ function maybeDisposeRoot(divId: any) {
 
 // Draw chart
 const Chart = () => {
-  const { contractpackages } = use(MyContext);
+  const {
+    contractpackages,
+    updateChartPanelwidth,
+    chartPanelwidth,
+    updateLayersRevit,
+    layersRevit,
+  } = use(MyContext);
   const arcgisScene = document.querySelector("arcgis-scene") as ArcgisScene;
   const legendRef = useRef<unknown | any | undefined>({});
   const chartRef = useRef<unknown | any | undefined>({});
@@ -71,88 +61,80 @@ const Chart = () => {
   const [resetButtonClicked, setResetButtonClicked] = useState<boolean>(false);
   const [categoryClicked, setCategoryClicked] = useState<string>("");
 
-  // Create useStates
-  const [buildingSceneLayer, setBuildingSceneLayer] =
-    useState<BuildingSceneLayer>(buildingLayer);
-
-  const [foundationSublayer, setFoundationSublayer] =
-    useState<BuildingComponentSublayer>(stFoundationLayer);
-  const [framingSublayer, setFramingSublayer] =
-    useState<BuildingComponentSublayer>(stFramingLayer);
-  const [bearingSublayer, setBearingSublayer] =
-    useState<BuildingComponentSublayer>(bearingsLayer);
-  const [piersSublayer, setPiersSublayer] =
-    useState<BuildingComponentSublayer>(piersLayer);
-  const [decksSublayer, setDecksSublayer] =
-    useState<BuildingComponentSublayer>(decksLayer);
-  const [specialtyEquipmentSublayer, setSpecialtyEquipmentSublayer] =
-    useState<BuildingComponentSublayer>(specialtyEquipmentLayer);
-
-  // Chart
   const chartID = "viaduct-bar";
 
+  //--- Store Building layers for filtering
   useEffect(() => {
-    // S-01
+    buildingLayer.when(() => {
+      updateLayersRevit([
+        {
+          "S-01": [
+            decksLayer,
+            bearingsLayer,
+            piersLayer,
+            stFoundationLayer,
+            bearingsLayer,
+            stFramingLayer,
+            buildingLayer,
+          ],
+        },
+      ]);
+    });
+  }, []);
+
+  useEffect(() => {
     if (contractpackages === "S-01") {
-      setFoundationSublayer(stFoundationLayer);
-      setFramingSublayer(stFramingLayer);
-      setBearingSublayer(bearingsLayer);
-      setPiersSublayer(piersLayer);
-      setDecksSublayer(decksLayer);
-      setSpecialtyEquipmentSublayer(specialtyEquipmentLayer);
-      setBuildingSceneLayer(buildingLayer);
+      viaductLayer.visible = false;
+      buildingLayer.visible = true;
 
-      visibilitySublayersContractcp({
-        visibleLayers: [buildingLayer],
-        invisibleLayers: [viaductLayer, buildingLayer_s06],
-      });
-
-      chartDataBIM({
-        stFoundationLayer,
-        piersLayer,
-        decksLayer,
-        contractcp: contractpackages,
-      }).then((response: any) => {
+      chartDataForRevit(
+        contractpackages,
+        [
+          viatypes[0].category,
+          viatypes[1].category,
+          viatypes[2].category,
+          viatypes[3].category,
+          viatypes[4].category,
+          viatypes[6].category,
+        ],
+        [
+          stFoundationLayer,
+          stFoundationLayer,
+          piersLayer,
+          piersLayer,
+          decksLayer,
+          piersLayer,
+        ],
+        [1, 4], // 'To be Constructed', 'Completed'
+      ).then((response: any) => {
         setChartData(response[0]);
         setProgress(response);
       });
-
-      // S-06
-    } else if (contractpackages === "S-06") {
-      setFoundationSublayer(stFoundationLayer_s06);
-      setBearingSublayer(bearingsLayer_s06);
-      setPiersSublayer(piersLayer_s06);
-      setDecksSublayer(decksLayer_s06);
-      setSpecialtyEquipmentSublayer(specialtyEquipmentLayer_s06);
-      setBuildingSceneLayer(buildingLayer_s06);
-
-      visibilitySublayersContractcp({
-        visibleLayers: [buildingLayer_s06],
-        invisibleLayers: [viaductLayer, buildingLayer],
-      });
-
-      chartDataBIM({
-        stFoundationLayer: stFoundationLayer_s06,
-        piersLayer: piersLayer_s06,
-        decksLayer: decksLayer_s06,
-        contractcp: contractpackages,
-      }).then((response: any) => {
-        setChartData(response[0]);
-        setProgress(response);
-      });
-
-      // Multipatch Layer
     } else {
-      visibilitySublayersContractcp({
-        visibleLayers: [viaductLayer],
-        invisibleLayers: [buildingLayer_s06, buildingLayer],
-      });
+      buildingLayer.visible = false;
+      viaductLayer.visible = true;
 
-      generateChartData(contractpackages).then((response: any) => {
-        setChartData(response);
-      });
-
-      generateTotalProgress(contractpackages).then((response: any) => {
+      chartDataForMultipatch(
+        contractpackages,
+        [
+          viatypes[0].category,
+          viatypes[1].category,
+          viatypes[2].category,
+          viatypes[3].category,
+          viatypes[4].category,
+          viatypes[5].category,
+        ],
+        [
+          viaductLayer,
+          viaductLayer,
+          viaductLayer,
+          viaductLayer,
+          viaductLayer,
+          viaductLayer,
+        ],
+        [1, 2, 4], // 'To be Constructed', 'Completed'
+      ).then((response: any) => {
+        setChartData(response[0]);
         setProgress(response);
       });
     }
@@ -170,25 +152,21 @@ const Chart = () => {
   const paddingLeft = 5;
   const paddingRight = 5;
   const paddingBottom = 0;
-
-  const xAxisNumberFormat = "#'%'";
-  const seriesBulletLabelFontSize = "1vw";
-
-  // axis label
-  const yAxisLabelFontSize = "0.8vw";
-  const xAxisLabelFontSize = "0.8vw";
-  const legendFontSize = "0.8vw";
-
-  // 1.1. Point
-  const chartIconWidth = 35;
-  const chartIconHeight = 35;
   const chartIconPositionX = -21;
   const chartPaddingRightIconLabel = 45;
 
-  const chartSeriesFillColorComp = "#0070ff";
-  const chartSeriesFillColorIncomp = "#000000";
   const chartBorderLineColor = "#00c5ff";
   const chartBorderLineWidth = 0.4;
+
+  // ************************************
+  //  Responsive Chart parameters
+  // ***********************************
+  const new_fontSize = chartPanelwidth / 20;
+  const new_valueSize = new_fontSize * 1.55;
+  const new_chartIconSize = chartPanelwidth * 0.07;
+  const new_axisFontSize = chartPanelwidth * 0.036;
+  const new_imageSize = chartPanelwidth * 0.035;
+  // const new_resetfiler_buttonSize = chartPanelwidth * 0.05;
 
   // Utility Chart
   useEffect(() => {
@@ -224,225 +202,40 @@ const Chart = () => {
     );
     chartRef.current = chart;
 
-    const yRenderer = am5xy.AxisRendererY.new(root, {
-      inversed: true,
-    });
-    const yAxis = chart.yAxes.push(
-      am5xy.CategoryAxis.new(root, {
-        categoryField: "category",
-        renderer: yRenderer,
-        bullet: function (root, _axis, dataItem: any) {
-          return am5xy.AxisBullet.new(root, {
-            location: 0.5,
-            sprite: am5.Picture.new(root, {
-              width: chartIconWidth,
-              height: chartIconHeight,
-              centerY: am5.p50,
-              centerX: am5.p50,
-              x: chartIconPositionX,
-              src: dataItem.dataContext.icon,
-            }),
-          });
-        },
-        tooltip: am5.Tooltip.new(root, {}),
-      }),
-    );
-
-    yRenderer.labels.template.setAll({
-      paddingRight: chartPaddingRightIconLabel,
-    });
-
-    yRenderer.grid.template.setAll({
-      location: 1,
-    });
-
-    // Label properties Y axis
-    yAxis.get("renderer").labels.template.setAll({
-      oversizedBehavior: "wrap",
-      textAlign: "center",
-      fill: am5.color("#ffffff"),
-      //maxWidth: 150,
-      fontSize: yAxisLabelFontSize,
-    });
-    yAxis.data.setAll(chartData);
-
-    const xAxis = chart.xAxes.push(
-      am5xy.ValueAxis.new(root, {
-        min: 0,
-        max: 100,
-        strictMinMax: true,
-        numberFormat: xAxisNumberFormat,
-        calculateTotals: true,
-        renderer: am5xy.AxisRendererX.new(root, {
-          strokeOpacity: 0,
-          strokeWidth: 1,
-          stroke: am5.color("#ffffff"),
-        }),
-      }),
-    );
-
-    xAxis.get("renderer").labels.template.setAll({
-      //oversizedBehavior: "wrap",
-      textAlign: "center",
-      fill: am5.color("#ffffff"),
-      //maxWidth: 150,
-      fontSize: xAxisLabelFontSize,
-    });
-
     const legend = chart.children.push(
       am5.Legend.new(root, {
-        centerX: am5.p50,
-        centerY: am5.percent(50),
+        centerX: am5.percent(50),
+        // centerY: am5.percent(50),
         x: am5.percent(50),
-        marginTop: 20,
-        scale: 0.75,
+        marginTop: 15,
+        // scale: 0.85,
         layout: root.horizontalLayout,
       }),
     );
     legendRef.current = legend;
 
-    legend.labels.template.setAll({
-      oversizedBehavior: "truncate",
-      fill: am5.color("#ffffff"),
-      fontSize: legendFontSize,
-      scale: 1.2,
-      marginRight: -50,
-      //textDecoration: "underline"
-      //width: am5.percent(600),
-      //fontWeight: '300',
+    chartRenderer({
+      root: root,
+      chart: chart,
+      data: chartData,
+      contractcp: contractpackages,
+      statusTypename: ["Completed", "To be Constructed", "Under Construction"],
+      statusStatename: ["comp", "incomp", "ongoing"],
+      seriesStatusColor: viaductStatusColorForChart,
+      strokeColor: chartBorderLineColor,
+      strokeWidth: chartBorderLineWidth,
+      arcgisScene: arcgisScene,
+      setClickedCategory: setCategoryClicked,
+      setSublayerViewFilter: setSublayerViewFilter,
+      new_chartIconSize: new_chartIconSize,
+      new_axisFontSize: new_axisFontSize,
+      chartIconPositionX: chartIconPositionX,
+      chartPaddingRightIconLabel: chartPaddingRightIconLabel,
+      legend: legend,
+      updateChartPanelwidth: updateChartPanelwidth,
     });
 
-    function makeSeries(name: any, fieldName: any) {
-      const series = chart.series.push(
-        am5xy.ColumnSeries.new(root, {
-          name: name,
-          stacked: true,
-          xAxis: xAxis,
-          yAxis: yAxis,
-          baseAxis: yAxis,
-          valueXField: fieldName,
-          valueXShow: "valueXTotalPercent",
-          categoryYField: "category",
-          fill:
-            fieldName === "incomp"
-              ? am5.color(chartSeriesFillColorIncomp)
-              : am5.color(chartSeriesFillColorComp),
-          stroke: am5.color(chartBorderLineColor),
-        }),
-      );
-
-      series.columns.template.setAll({
-        fillOpacity: fieldName === "comp" ? 1 : 0.5,
-        tooltipText: "{name}: {valueX}", // "{categoryY}: {valueX}",
-        tooltipY: am5.percent(90),
-        strokeWidth: chartBorderLineWidth,
-      });
-      series.data.setAll(chartData);
-
-      series.appear();
-
-      series.bullets.push(function () {
-        return am5.Bullet.new(root, {
-          sprite: am5.Label.new(root, {
-            text:
-              fieldName === "incomp"
-                ? ""
-                : "{valueXTotalPercent.formatNumber('#.')}%", //"{valueX}",
-            fill: root.interfaceColors.get("alternativeText"),
-            opacity: fieldName === "incomp" ? 0 : 1,
-            fontSize: seriesBulletLabelFontSize,
-            centerY: am5.p50,
-            centerX: am5.p50,
-            populateText: true,
-          }),
-        });
-      });
-
-      // Click event
-      series.columns.template.events.on("click", (ev) => {
-        const selected: any = ev.target.dataItem?.dataContext;
-        const categorySelected: string = selected.category;
-        const find = viatypes.find(
-          (emp: any) => emp.category === categorySelected,
-        );
-        setCategoryClicked(categorySelected);
-        const typeSelected = find?.value;
-        const selectedStatus: number | null =
-          fieldName === "comp" ? 4 : fieldName === "ongoing" ? 2 : 1;
-
-        // For Revit models
-        if (contractpackages === "S-01" || contractpackages === "S-06") {
-          // Query expression
-          const expression_revit =
-            "CP = '" +
-            contractpackages +
-            "'" +
-            " AND " +
-            "Types = " +
-            typeSelected +
-            " AND " +
-            "Status = " +
-            selectedStatus;
-
-          // Find sublayer
-          const selectedSublayerName = sublayerNames.find(
-            (emp: any) => emp.category === categorySelected,
-          )?.modelName;
-
-          arcgisScene?.view
-            ?.whenLayerView(buildingSceneLayer)
-            .then((buildingSceneLayerView: any) => {
-              const sublayerView = buildingSceneLayerView.sublayerViews.find(
-                (sublayerView: any) => {
-                  return (
-                    sublayerView.sublayer.modelName === selectedSublayerName
-                  );
-                },
-              );
-              setSublayerViewFilter(sublayerView);
-              sublayersVisibility({
-                contractcp: contractpackages,
-                categorySelected: categorySelected,
-                expression: expression_revit,
-                stFoundationLayer: foundationSublayer,
-                stFramingLayer: framingSublayer,
-                piersLayer: piersSublayer,
-                bearingsLayer: bearingSublayer,
-                decksLayer: decksSublayer,
-                specialtyEquipmentLayer: specialtyEquipmentSublayer,
-              });
-
-              if (sublayerView) {
-                sublayerView.filter = new FeatureFilter({
-                  where: expression_revit,
-                });
-              }
-            });
-          // Multipatch layer
-        } else {
-          const expression =
-            "CP = '" +
-            contractpackages +
-            "'" +
-            " AND " +
-            "Type = " +
-            typeSelected +
-            " AND " +
-            "Status = " +
-            selectedStatus;
-          polygonViewQueryFeatureHighlight({
-            polygonLayer: viaductLayer,
-            qExpression: expression,
-            view: arcgisScene?.view,
-          });
-        }
-      });
-      legend.data.push(series);
-    }
-    makeSeries(construction_status[2], "comp");
-    makeSeries(construction_status[0], "incomp");
-    // makeSeries('Delayed', 'delay');
-    chart.appear(1000, 100);
+    // chart.appear(1000, 100);
 
     return () => {
       root.dispose();
@@ -450,34 +243,18 @@ const Chart = () => {
   });
 
   useEffect(() => {
-    console.log(categoryClicked);
     if (sublayerViewFilter) {
       sublayerViewFilter.filter = new FeatureFilter({
         where: undefined,
       });
-      resetSublayersInLayerView({
-        stFoundationLayer: foundationSublayer,
-        stFramingLayer: framingSublayer,
-        piersLayer: piersSublayer,
-        decksLayer: decksSublayer,
-        bearingsLayer: bearingSublayer,
-        specialtyEquipmentLayer: specialtyEquipmentSublayer,
-        buildingLayer: buildingSceneLayer,
-      });
+
+      layersRevitVisibility({ layers: layersRevit[0][contractpackages] });
     }
 
-    if (categoryClicked === "Others" || categoryClicked === "At-Grade") {
-      resetSublayersInLayerView({
-        stFoundationLayer: foundationSublayer,
-        stFramingLayer: framingSublayer,
-        piersLayer: piersSublayer,
-        decksLayer: decksSublayer,
-        bearingsLayer: bearingSublayer,
-        specialtyEquipmentLayer: specialtyEquipmentSublayer,
-        buildingLayer: buildingSceneLayer,
-      });
+    if (categoryClicked === "Others") {
+      layersRevitVisibility({ layers: layersRevit[0][contractpackages] });
     }
-  }, [resetButtonClicked]);
+  }, [resetButtonClicked, categoryClicked]);
 
   const primaryLabelColor = "#9ca3af";
   const valueLabelColor = "#d1d5db";
@@ -507,15 +284,15 @@ const Chart = () => {
           <img
             src="https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_All_Logo.svg"
             alt="Land Logo"
-            height={"14%"}
-            width={"14%"}
+            height={`${new_imageSize}%`}
+            width={`${new_imageSize}%`}
             style={{ paddingTop: "20px", paddingLeft: "15px" }}
           />
           <dl style={{ alignItems: "center" }}>
             <dt
               style={{
                 color: primaryLabelColor,
-                fontSize: "1.2rem",
+                fontSize: `${new_fontSize}px`,
                 marginRight: "35px",
               }}
             >
@@ -524,7 +301,7 @@ const Chart = () => {
             <dd
               style={{
                 color: valueLabelColor,
-                fontSize: "1.9rem",
+                fontSize: `${new_valueSize}px`,
                 fontWeight: "bold",
                 fontFamily: "calibri",
                 lineHeight: "1.2",
@@ -538,7 +315,7 @@ const Chart = () => {
         <div
           id={chartID}
           style={{
-            height: contractpackages === "S-01" ? "68vh" : "70vh",
+            height: contractpackages === "S-01" ? "65vh" : "70vh",
             // width: "26vw",
             backgroundColor: "rgb(0,0,0,0)",
             color: "white",
@@ -547,13 +324,13 @@ const Chart = () => {
             marginTop: "10px",
           }}
         ></div>
-        {(contractpackages === "S-01" || contractpackages === "S-06") && (
+        {contractpackages === "S-01" && (
           <div
             id="filterButton"
             style={{
-              width: "50%",
+              // width: "50%",
               marginLeft: "30%",
-              marginTop: contractpackages === "S-01" ? "5%" : "2%",
+              marginTop: "10%",
             }}
           >
             <CalciteButton

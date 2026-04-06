@@ -1,35 +1,36 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 import {
-  // buildingLayer,
+  bearingsLayer,
+  buildingLayer,
   dateTable,
+  decksLayer,
   pierNoLayer,
+  piersLayer,
+  specialtyEquipmentLayer,
+  stFoundationLayer,
+  stFramingLayer,
   viaductLayer,
   viaductLayerStatus4,
 } from "./layers";
 import StatisticDefinition from "@arcgis/core/rest/support/StatisticDefinition";
 import Query from "@arcgis/core/rest/support/Query";
 import FeatureLayer from "@arcgis/core/layers/FeatureLayer";
-import SceneLayer from "@arcgis/core/layers/SceneLayer";
 import FeatureFilter from "@arcgis/core/layers/support/FeatureFilter";
-import BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
-import BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
+import BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer.js";
+import {
+  cp_field,
+  status_field,
+  sublayerNames,
+  type_field_layer,
+  type_field_revit,
+  viatypes,
+} from "./uniqueValues";
 
-export const construction_status = [
-  "To be Constructed",
-  "Under Construction",
-  "Completed",
-];
-
-export const contractPackage = [
-  "S-01",
-  "S-02",
-  "S-03a",
-  "S-03b",
-  "S-03c",
-  "S-04",
-  "S-05",
-  "S-06",
-];
+import type { StatusStateType } from "./uniqueValues";
+import type { StatusTypenamesType } from "./uniqueValues";
+import * as am5 from "@amcharts/amcharts5";
+import * as am5xy from "@amcharts/amcharts5/xy";
+import type BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 
 // Updat date
 export async function dateUpdate() {
@@ -65,663 +66,736 @@ export async function dateUpdate() {
   });
 }
 
-// Generate chart data
-export const viatypes = [
-  {
-    category: "Bored Pile",
-    value: 1,
-  },
-  {
-    category: "Pile Cap",
-    value: 2,
-  },
-  {
-    category: "Pier",
-    value: 3,
-  },
-  {
-    category: "Pier Head",
-    value: 4,
-  },
-  {
-    category: "Precast",
-    value: 5,
-  },
-  {
-    category: "At-Grade",
-    value: 7,
-  },
-  {
-    category: "Noise Barrier",
-    value: 8,
-  },
-  {
-    category: "Others",
-    value: 0,
-  },
-];
+// ****************************
+//    Chart Parameters
+// ****************************
+//-- Responsve parameters
+export function responsiveChart(chart: any, legend: any) {
+  chart.onPrivate("width", (width: any) => {
+    const availableSpace = width * 0.08; // original 0.7
+    const new_fontSize = width / 35;
 
-export const sublayerNames = [
-  {
-    modelName: "StructuralFoundation",
-    category: viatypes[0].category, // pile
-  },
-  {
-    modelName: "StructuralFoundation",
-    category: viatypes[1].category, // pile cap
-  },
-  {
-    modelName: "Piers",
-    category: viatypes[2].category, // pier
-  },
-  {
-    modelName: "Piers",
-    category: viatypes[3].category, // pier head
-  },
-  {
-    modelName: "Decks",
-    category: viatypes[4].category, // precast
-  },
-  {
-    modelName: "Piers",
-    category: viatypes[6].category, // noise barrier
-  },
-  // {
-  //   modelName: "Piers",
-  //   category: viatypes[6].category, // others
-  // },
-];
+    legend.labels.template.setAll({
+      width: availableSpace,
+      fill: am5.color("#ffffff"),
+      maxWidth: availableSpace,
+      fontSize: new_fontSize,
+    });
+  });
+}
 
-// Generate chart data
-type chartDataType = {
-  stFoundationLayer?: BuildingComponentSublayer;
-  piersLayer?: BuildingComponentSublayer;
-  bearingsLayer?: BuildingComponentSublayer;
-  decksLayer?: BuildingComponentSublayer;
-  contractcp?: string;
+//--- LayerView Filter and Highlight
+interface layerViewQueryType {
+  layer?: any;
+  categorySelected?: any;
+  qExpression?: any;
+  sublayerNames?: any;
+  view: any;
+  setLayerViewFilter?: any;
+}
+
+// BuildingLayer Sublayers
+export const highlightFilterBuildingSublayerView = ({
+  layer,
+  categorySelected,
+  qExpression,
+  sublayerNames,
+  view,
+  setLayerViewFilter, // useState
+}: layerViewQueryType) => {
+  view?.whenLayerView(layer).then((layerView: any) => {
+    //--- Create sublayerview
+    const sublayerView = layerView.sublayerViews.find((sublayerView: any) => {
+      return sublayerView.sublayer.modelName === sublayerNames;
+    });
+
+    setLayerViewFilter(sublayerView);
+    s01_sublayersVisibility(categorySelected, qExpression);
+
+    if (sublayerView) {
+      sublayerView.filter = new FeatureFilter({
+        where: qExpression,
+      });
+    }
+  });
 };
 
-export async function chartDataBIM({
-  stFoundationLayer,
-  piersLayer,
-  // bearingsLayer,
-  decksLayer,
+interface layerViewQueryType {
+  layer?: any;
+  qExpression?: any;
+  view: any;
+}
+// FeatureLayer or SceneLayer
+export const highlightFilterLayerView = ({
+  layer,
+  qExpression,
+  view,
+}: layerViewQueryType) => {
+  const query = layer.createQuery();
+  query.where = qExpression;
+  let highlightSelect: any;
+
+  view?.whenLayerView(layer).then((layerView: any) => {
+    layer?.queryObjectIds(query).then((results: any) => {
+      const objID = results;
+
+      highlightSelect && highlightSelect.remove();
+      highlightSelect = layerView.highlight(objID);
+    });
+
+    layerView.filter = new FeatureFilter({
+      where: qExpression,
+    });
+
+    // For initial state, we need to add this
+    view?.on("click", () => {
+      layerView.filter = new FeatureFilter({
+        where: undefined,
+      });
+      highlightSelect && highlightSelect.remove();
+    });
+  });
+};
+
+//--- Click event on series
+export function clickSeries(
+  series: any,
+  contractcp: any,
+  sublayerNames: any,
+  statusStatename: any,
+  arcgisScene: any,
+  setClickedCategory: any, // useState
+  setSublayerViewFilter: any, // useState
+) {
+  series.columns.template.events.on("click", (ev: any) => {
+    const selected: any = ev.target.dataItem?.dataContext;
+    const categorySelected: string = selected.category;
+    const find = viatypes.find((emp: any) => emp.category === categorySelected);
+    const typeSelected = find?.value;
+    const selectedStatus: number | null =
+      statusStatename === "comp" ? 4 : statusStatename === "ongoing" ? 2 : 1;
+
+    //--- Store clicked category
+    setClickedCategory(categorySelected);
+
+    //--- For Revit models ---//
+    if (contractcp === "S-01") {
+      const expression_revit = queryExpression({
+        contractcp: contractcp,
+        type: typeSelected,
+        status: selectedStatus,
+        queryField: undefined,
+        layerType: "buildingSublayer",
+      });
+
+      //--- Find sublayer
+      const selectedSublayerName = sublayerNames.find(
+        (emp: any) => emp.category === categorySelected,
+      )?.modelName;
+
+      //--- Hilight and Filter
+      // Building sublayers
+      highlightFilterBuildingSublayerView({
+        layer: buildingLayer,
+        categorySelected: categorySelected,
+        qExpression: expression_revit,
+        sublayerNames: selectedSublayerName,
+        view: arcgisScene?.view,
+        setLayerViewFilter: setSublayerViewFilter,
+      });
+
+      // Scenelayer or layer
+    } else {
+      const expression_layer = queryExpression({
+        contractcp: contractcp,
+        type: typeSelected,
+        status: selectedStatus,
+      });
+
+      highlightFilterLayerView({
+        layer: viaductLayer,
+        qExpression: expression_layer,
+        view: arcgisScene?.view,
+      });
+    }
+  });
+}
+
+//--- Chart series
+export function makeSeries(
+  root: any,
+  chart: any,
+  contractcp: any,
+  data: any,
+  statusTypename: any,
+  statusStatename: any,
+  xAxis: any,
+  yAxis: any,
+  legend: any,
+  new_axisFontSize: any,
+  seriesStatusColor: any,
+  strokeColor: any,
+  strokeWidth: any,
+  arcgisScene: any,
+  setClickedCategory: any,
+  setSublayerViewFilter: any,
+) {
+  const series = chart.series.push(
+    am5xy.ColumnSeries.new(root, {
+      name: statusTypename,
+      stacked: true,
+      xAxis: xAxis,
+      yAxis: yAxis,
+      baseAxis: yAxis,
+      valueXField: statusStatename,
+      valueXShow: "valueXTotalPercent",
+      categoryYField: "category",
+      fill:
+        statusStatename === "incomp"
+          ? am5.color(seriesStatusColor[0])
+          : statusStatename === "comp"
+            ? am5.color(seriesStatusColor[3])
+            : am5.color(seriesStatusColor[1]),
+      stroke: am5.color(strokeColor),
+    }),
+  );
+
+  series.columns.template.setAll({
+    fillOpacity: statusStatename === "comp" ? 1 : 0.5,
+    tooltipText: "{name}: {valueX}", // "{categoryY}: {valueX}",
+    tooltipY: am5.percent(90),
+    strokeWidth: strokeWidth,
+  });
+  series.data.setAll(data);
+
+  series.appear();
+
+  series.bullets.push(() => {
+    return am5.Bullet.new(root, {
+      sprite: am5.Label.new(root, {
+        text:
+          statusStatename === "incomp"
+            ? ""
+            : "{valueXTotalPercent.formatNumber('#.')}%", //"{valueX}",
+        fill: root.interfaceColors.get("alternativeText"),
+        opacity: statusStatename === "incomp" ? 0 : 1,
+        fontSize: new_axisFontSize,
+        centerY: am5.p50,
+        centerX: am5.p50,
+        populateText: true,
+      }),
+    });
+  });
+
+  // Click series
+  clickSeries(
+    series,
+    contractcp,
+    sublayerNames,
+    statusStatename,
+    arcgisScene,
+    setClickedCategory,
+    setSublayerViewFilter,
+  );
+
+  legend.data.push(series);
+}
+
+//--- Chart Renderer
+
+interface chartType {
+  root: any;
+  chart: any;
+  data: any;
+  contractcp: any;
+  statusTypename: StatusTypenamesType[];
+  statusStatename: StatusStateType[];
+  seriesStatusColor: any;
+  strokeColor: any;
+  strokeWidth: any;
+  arcgisScene: any;
+  setClickedCategory: any;
+  setSublayerViewFilter: any;
+  new_chartIconSize: any;
+  new_axisFontSize: any;
+  chartIconPositionX: any;
+  chartPaddingRightIconLabel: any;
+  legend: any;
+  updateChartPanelwidth: any;
+}
+export function chartRenderer({
+  root,
+  chart,
+  data,
   contractcp,
-}: chartDataType) {
-  const expression = "CP = '" + contractcp + "'";
-
-  const total_boredpile_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 1 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_boredpile_incomp",
-    statisticType: "sum",
+  statusTypename,
+  statusStatename,
+  seriesStatusColor,
+  strokeColor,
+  strokeWidth,
+  arcgisScene,
+  setClickedCategory,
+  setSublayerViewFilter,
+  new_chartIconSize,
+  new_axisFontSize,
+  chartIconPositionX,
+  chartPaddingRightIconLabel,
+  legend,
+  updateChartPanelwidth,
+}: chartType) {
+  // Axis Renderer
+  const yRenderer = am5xy.AxisRendererY.new(root, {
+    inversed: true,
   });
 
-  const total_boredpile_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 1 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_boredpile_comp",
-    statisticType: "sum",
+  //--- yAxix
+  const yAxis = chart.yAxes.push(
+    am5xy.CategoryAxis.new(root, {
+      categoryField: "category",
+      renderer: yRenderer,
+      bullet: function (root: any, _axis: any, dataItem: any) {
+        return am5xy.AxisBullet.new(root, {
+          location: 0.5,
+          sprite: am5.Picture.new(root, {
+            width: new_chartIconSize,
+            height: new_chartIconSize,
+            centerY: am5.p50,
+            centerX: am5.p50,
+            x: chartIconPositionX,
+            src: dataItem.dataContext.icon,
+          }),
+        });
+      },
+      tooltip: am5.Tooltip.new(root, {}),
+    }),
+  );
+
+  yRenderer.labels.template.setAll({
+    paddingRight: chartPaddingRightIconLabel,
   });
 
-  const total_pilecap_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 2 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pilecap_incomp",
-    statisticType: "sum",
+  yRenderer.grid.template.setAll({
+    location: 1,
   });
 
-  const total_pilecap_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 2 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pilecap_comp",
-    statisticType: "sum",
+  yAxis.get("renderer").labels.template.setAll({
+    oversizedBehavior: "wrap",
+    textAlign: "center",
+    fill: am5.color("#ffffff"),
+    //maxWidth: 150,
+    fontSize: new_axisFontSize,
+  });
+  yAxis.data.setAll(data);
+
+  //--- xAxix
+  const xAxis = chart.xAxes.push(
+    am5xy.ValueAxis.new(root, {
+      min: 0,
+      max: 100,
+      strictMinMax: true,
+      numberFormat: "#'%'",
+      calculateTotals: true,
+      renderer: am5xy.AxisRendererX.new(root, {
+        strokeOpacity: 0,
+        strokeWidth: 1,
+        stroke: am5.color("#ffffff"),
+      }),
+    }),
+  );
+
+  xAxis.get("renderer").labels.template.setAll({
+    //oversizedBehavior: "wrap",
+    textAlign: "center",
+    fill: am5.color("#ffffff"),
+    //maxWidth: 150,
+    fontSize: new_axisFontSize,
   });
 
-  const total_pier_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 3 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pier_incomp",
-    statisticType: "sum",
+  //--- Responsive Chart
+  responsiveChart(chart, legend);
+  chart.onPrivate("width", (width: any) => {
+    updateChartPanelwidth(width);
   });
 
-  const total_pier_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 3 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pier_comp",
-    statisticType: "sum",
-  });
-
-  const total_pierhead_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 4 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pierhead_incomp",
-    statisticType: "sum",
-  });
-
-  const total_pierhead_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 4 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pierhead_comp",
-    statisticType: "sum",
-  });
-
-  const total_decks_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 5 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_decks_incomp",
-    statisticType: "sum",
-  });
-
-  const total_decks_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 5 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_decks_comp",
-    statisticType: "sum",
-  });
-
-  const total_atgrade_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 7 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_atgrade_incomp",
-    statisticType: "sum",
-  });
-
-  const total_atgrade_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 7 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_atgrade_comp",
-    statisticType: "sum",
-  });
-
-  const total_pierwalls_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 8 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pierwalls_incomp",
-    statisticType: "sum",
-  });
-
-  const total_pierwalls_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 8 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pierwalls_comp",
-    statisticType: "sum",
-  });
-
-  const total_others_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 0 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_others_incomp",
-    statisticType: "sum",
-  });
-
-  const total_others_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Types = 0 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_others_comp",
-    statisticType: "sum",
-  });
-
-  // Bored Pile
-  const query_pile = new Query();
-  query_pile.outStatistics = [
-    total_boredpile_incomp,
-    total_boredpile_comp,
-    total_others_incomp,
-    total_others_comp,
-  ];
-
-  contractcp && (query_pile.where = expression);
-  const piles = stFoundationLayer
-    ?.queryFeatures(query_pile)
-    .then((response: any) => {
-      const stats = response.features[0].attributes;
-      const incomp = stats.total_boredpile_incomp;
-      const comp = stats.total_boredpile_comp;
-      const total = incomp + comp;
-
-      const others_incomp = stats.total_others_incomp;
-      const others_comp = stats.total_others_comp;
-      const total_others = others_incomp + others_comp;
-
-      return [incomp, comp, total, others_incomp, others_comp, total_others];
+  //--- Make Series
+  statusTypename &&
+    statusTypename.map((statustype: any, index: any) => {
+      makeSeries(
+        root,
+        chart,
+        contractcp,
+        data,
+        statustype,
+        statusStatename[index],
+        xAxis,
+        yAxis,
+        legend,
+        new_axisFontSize,
+        seriesStatusColor,
+        strokeColor,
+        strokeWidth,
+        arcgisScene,
+        setClickedCategory,
+        setSublayerViewFilter,
+      );
     });
+}
 
-  // Pile Cap
-  const query_pilecap = new Query();
-  query_pilecap.outStatistics = [
-    total_pilecap_incomp,
-    total_pilecap_comp,
-    total_others_incomp,
-    total_others_comp,
+// ****************************
+//    Segmented list Parameters
+// ****************************
+interface queryExpressionType {
+  contractcp?: string;
+  type?: number;
+  status?: number;
+  queryField?: any;
+  layerType?: "buildingSublayer" | "sceneLayer";
+}
+
+export function queryExpression({
+  contractcp,
+  type,
+  status,
+  queryField,
+  layerType,
+}: queryExpressionType) {
+  let expression = "";
+
+  const cp_query = `${cp_field} = '${contractcp}'`;
+  const type_query_revit = `${type_field_revit} = ${type}`;
+  const type_query_layer = `${type_field_layer} = ${type}`;
+  const status_query = `${status_field} = ${status}`;
+
+  // With queryField
+  const cptypeQuery_revit =
+    `${cp_query} AND ${type_query_revit}` + " AND " + queryField;
+  const cptypeQuery_layer =
+    `${cp_query} AND ${type_query_layer}` + " AND " + queryField;
+  const cptypestatusQuery_revit =
+    `${cp_query} AND ${type_query_revit} AND ${status_query}` +
+    " AND " +
+    queryField;
+  const cptypestatusQuery_layer =
+    `${cp_query} AND ${type_query_layer} AND ${status_query}` +
+    " AND " +
+    queryField;
+
+  // Without queryField
+  const cptype_revit = `${cp_query} AND ${type_query_revit}`;
+  const cptype_layer = `${cp_query} AND ${type_query_layer}`;
+  const cptypestatus_revit = `${cp_query} AND ${type_query_revit} AND ${status_query}`;
+  const cptypestatus_layer = `${cp_query} AND ${type_query_layer} AND ${status_query}`;
+
+  if (queryField) {
+    if (!contractcp && !type && !status) {
+      expression = "1=1" + " AND " + queryField;
+    } else if (contractcp && !type && !status) {
+      expression = cp_query + " AND " + queryField;
+    } else if (contractcp && type && !status) {
+      expression =
+        layerType === "buildingSublayer"
+          ? cptypeQuery_revit
+          : cptypeQuery_layer;
+    } else if (contractcp && type && status) {
+      expression =
+        layerType === "buildingSublayer"
+          ? cptypestatusQuery_revit
+          : cptypestatusQuery_layer;
+    }
+  } else {
+    if (!contractcp && !type && !status) {
+      expression = "1=1";
+    } else if (contractcp && !type && !status) {
+      expression = cp_query;
+    } else if (contractcp && type && !status) {
+      expression =
+        layerType === "buildingSublayer" ? cptype_revit : cptype_layer;
+    } else if (
+      (contractcp && type && status) ||
+      (contractcp && type === 0 && status)
+    ) {
+      expression =
+        layerType == "buildingSublayer"
+          ? cptypestatus_revit
+          : cptypestatus_layer;
+    }
+  }
+  return expression;
+}
+
+interface queryDefinitionExpressionType {
+  queryExpression?: string;
+  featureLayer?:
+    | [FeatureLayer, FeatureLayer?, FeatureLayer?, FeatureLayer?, FeatureLayer?]
+    | any;
+  builindgSubLayer?:
+    | [
+        BuildingComponentSublayer,
+        BuildingComponentSublayer?,
+        BuildingComponentSublayer?,
+        BuildingComponentSublayer?,
+        BuildingComponentSublayer?,
+        BuildingComponentSublayer?,
+        BuildingComponentSublayer?,
+        BuildingComponentSublayer?,
+      ]
+    | BuildingComponentSublayer;
+}
+
+export function queryDefinitionExpression({
+  queryExpression,
+  featureLayer,
+  builindgSubLayer,
+}: queryDefinitionExpressionType) {
+  if (queryExpression) {
+    if (featureLayer) {
+      if (Array.isArray(featureLayer)) {
+        featureLayer.forEach((layer) => {
+          if (layer) {
+            layer.definitionExpression = queryExpression;
+          }
+        });
+      } else {
+        featureLayer.definitionExpression = queryExpression;
+      }
+    } else if (builindgSubLayer) {
+      if (Array.isArray(builindgSubLayer)) {
+        builindgSubLayer.forEach((layer) => {
+          if (layer) {
+            layer.definitionExpression = queryExpression;
+          }
+        });
+      } else {
+        builindgSubLayer.definitionExpression = queryExpression;
+      }
+    }
+  } else {
+    if (featureLayer) {
+      if (Array.isArray(featureLayer)) {
+        featureLayer.forEach((layer) => {
+          if (layer) {
+            layer.definitionExpression = "1=1";
+          }
+        });
+      } else {
+        featureLayer.definitionExpression = "1=1";
+      }
+    } else if (builindgSubLayer) {
+      if (Array.isArray(builindgSubLayer)) {
+        builindgSubLayer.forEach((layer) => {
+          if (layer) {
+            layer.definitionExpression = "1=1";
+          }
+        });
+      } else {
+        builindgSubLayer.definitionExpression = "1=1";
+      }
+    }
+  }
+}
+
+interface layersRevitVisibilityType {
+  layers: [
+    BuildingComponentSublayer,
+    BuildingComponentSublayer?,
+    BuildingComponentSublayer?,
+    BuildingComponentSublayer?,
+    BuildingComponentSublayer?,
+    BuildingComponentSublayer?,
+    BuildingSceneLayer?,
   ];
-  contractcp && (query_pilecap.where = expression);
-  const pilecaps = stFoundationLayer
-    ?.queryFeatures(query_pilecap)
-    .then((response: any) => {
-      const stats = response.features[0].attributes;
-      const incomp = stats.total_pilecap_incomp;
-      const comp = stats.total_pilecap_comp;
-      const total = incomp + comp;
+}
 
-      const others_incomp = stats.total_others_incomp;
-      const others_comp = stats.total_others_comp;
-      const total_others = others_incomp + others_comp;
-
-      return [incomp, comp, total, others_incomp, others_comp, total_others];
+export const layersRevitVisibility = ({
+  layers,
+}: layersRevitVisibilityType) => {
+  if (layers) {
+    layers.map((layer: any) => {
+      if (layer) {
+        layer.definitionExpression = "1=1";
+        layer.visible = true;
+      }
     });
+  }
+};
 
-  // Pier Columns
-  const query_pier = new Query();
-  query_pier.outStatistics = [
-    total_pier_incomp,
-    total_pier_comp,
-    total_others_incomp,
-    total_others_comp,
-  ];
-  contractcp && (query_pier.where = expression);
-  const piers = piersLayer?.queryFeatures(query_pier).then((response: any) => {
+//--- Revit Chart Data generation
+export async function chartDataR(
+  contractp: any,
+  types: any,
+  layer: any,
+  statusstate: any,
+) {
+  //--- types: include 'others'. Each main type may have others (types = 0)
+  const compile: any = [];
+
+  //--- Main statistics
+  types.map((type: any) => {
+    statusstate.map((status: any) => {
+      const temp = new StatisticDefinition({
+        onStatisticField: `CASE WHEN (${type_field_revit} = ${type} and Status = ${status}) THEN 1 ELSE 0 END`,
+        outStatisticFieldName: `viaduct_stats${type}${status}`,
+        statisticType: "sum",
+      });
+      compile.push(temp);
+    });
+  });
+
+  //--- Query
+  const query = new Query();
+  query.outStatistics = compile;
+
+  const expression = queryExpression({
+    contractcp: contractp,
+  });
+  query.where = expression;
+  queryDefinitionExpression({
+    queryExpression: expression,
+    featureLayer: [pierNoLayer, viaductLayer],
+  });
+
+  //--- Query features using statistics definitions
+  // Note the above order: [01, 04, 11, 14] = [type/status...]
+  // Reorder for returned values: [11, 14, ]
+  const qStats = layer?.queryFeatures(query).then((response: any) => {
     const stats = response.features[0].attributes;
-    const incomp = stats.total_pier_incomp;
-    const comp = stats.total_pier_comp;
+    const incomp = stats[compile[2].outStatisticFieldName];
+    const comp = stats[compile[3].outStatisticFieldName];
+    const others_incomp = stats[compile[0].outStatisticFieldName];
+    const others_comp = stats[compile[1].outStatisticFieldName];
     const total = incomp + comp;
-
-    const others_incomp = stats.total_others_incomp;
-    const others_comp = stats.total_others_comp;
     const total_others = others_incomp + others_comp;
-
     return [incomp, comp, total, others_incomp, others_comp, total_others];
   });
+  return qStats;
+}
 
-  // Pier Head
-  const query_pierhead = new Query();
-  query_pierhead.outStatistics = [
-    total_pierhead_incomp,
-    total_pierhead_comp,
-    total_others_incomp,
-    total_others_comp,
-  ];
-  contractcp && (query_pierhead.where = expression);
-  const pierheads = piersLayer
-    ?.queryFeatures(query_pierhead)
-    .then((response: any) => {
-      const stats = response.features[0].attributes;
-      const incomp = stats.total_pierhead_incomp;
-      const comp = stats.total_pierhead_comp;
-      const total = incomp + comp;
+export async function chartDataForRevit(
+  contractcp: any,
+  via_types_chosen: any,
+  layers: any,
+  statusstate: any,
+) {
+  // [0, 1] = type['others', 'bored pile']
+  let total_comp = 0;
+  let total_all = 0;
+  const data0 = via_types_chosen.map(async (type: any, index: any) => {
+    //--- Extract type value and icon from the sorce list
+    const type_matched = viatypes.find((item) => item.category === type);
 
-      const others_incomp = stats.total_others_incomp;
-      const others_comp = stats.total_others_comp;
-      const total_others = others_incomp + others_comp;
+    //--- Calculate statistics
+    const stats = await chartDataR(
+      contractcp,
+      [0, type_matched?.value],
+      layers[index],
+      statusstate,
+    );
 
-      return [incomp, comp, total, others_incomp, others_comp, total_others];
+    //--- Compute total numbers for completed and grand total
+    total_comp += stats[1];
+    total_all += stats[2];
+    return Object.assign({
+      category: type,
+      comp: stats[1],
+      incomp: stats[0],
+      icon: type_matched?.icon,
     });
-
-  // At Grade
-  const query_atgrade = new Query();
-  query_atgrade.outStatistics = [
-    total_atgrade_incomp,
-    total_atgrade_comp,
-    total_others_incomp,
-    total_others_comp,
-  ];
-  contractcp && (query_atgrade.where = expression);
-  const query_at_grade = decksLayer
-    ?.queryFeatures(query_atgrade)
-    .then((response: any) => {
-      const stats = response.features[0].attributes;
-      const incomp = stats.total_atgrade_incomp;
-      const comp = stats.total_atgrade_comp;
-      const total = incomp + comp;
-
-      const others_incomp = stats.total_others_incomp;
-      const others_comp = stats.total_others_comp;
-      const total_others = others_incomp + others_comp;
-
-      return [incomp, comp, total, others_incomp, others_comp, total_others];
-    });
-
-  const query_atgrade2 = new Query();
-  query_atgrade2.outStatistics = [
-    total_atgrade_incomp,
-    total_atgrade_comp,
-    total_others_incomp,
-    total_others_comp,
-  ];
-  contractcp && (query_atgrade2.where = expression);
-  const query_at_grade2 = stFoundationLayer
-    ?.queryFeatures(query_atgrade2)
-    .then((response: any) => {
-      const stats = response.features[0].attributes;
-      const incomp = stats.total_atgrade_incomp;
-      const comp = stats.total_atgrade_comp;
-      const total = incomp + comp;
-
-      return [incomp, comp, total];
-    });
-
-  // Decks (precast)
-  const query_decks = new Query();
-  query_decks.outStatistics = [
-    total_decks_incomp,
-    total_decks_comp,
-    total_others_incomp,
-    total_others_comp,
-  ];
-  contractcp && (query_decks.where = expression);
-  const decks = decksLayer?.queryFeatures(query_decks).then((response: any) => {
-    const stats = response.features[0].attributes;
-    const incomp = stats.total_decks_incomp;
-    const comp = stats.total_decks_comp;
-    const total = incomp + comp;
-
-    const others_incomp = stats.total_others_incomp;
-    const others_comp = stats.total_others_comp;
-    const total_others = others_incomp + others_comp;
-
-    return [incomp, comp, total, others_incomp, others_comp, total_others];
   });
 
-  // Pier Walls
-  const query_pierwalls = new Query();
-  query_pierwalls.outStatistics = [
-    total_pierwalls_incomp,
-    total_pierwalls_comp,
-    total_others_incomp,
-    total_others_comp,
-  ];
-  contractcp && (query_pierwalls.where = expression);
-  const pierwalls = piersLayer
-    ?.queryFeatures(query_pierwalls)
-    .then((response: any) => {
-      const stats = response.features[0].attributes;
-      const incomp = stats.total_pierwalls_incomp;
-      const comp = stats.total_pierwalls_comp;
-      const total = incomp + comp;
-
-      const others_incomp = stats.total_others_incomp;
-      const others_comp = stats.total_others_comp;
-      const total_others = others_incomp + others_comp;
-
-      return [incomp, comp, total, others_incomp, others_comp, total_others];
-    });
-
-  const boredpile: any = await piles;
-  const pilecap: any = await pilecaps;
-  const piercolumn: any = await piers;
-  const pierhead: any = await pierheads;
-  const atgrade: any = await query_at_grade;
-  const atgrade2: any = await query_at_grade2;
-  const deck: any = await decks;
-  const pierwall: any = await pierwalls;
-
-  // Completed total
-  const total_comp =
-    boredpile[1] +
-    pilecap[1] +
-    piercolumn[1] +
-    pierhead[1] +
-    atgrade[1] +
-    atgrade2[1] +
-    deck[1] +
-    pierwall[1];
-
-  // grand total (comp + incomp)
-  const total_all =
-    boredpile[2] +
-    pilecap[2] +
-    piercolumn[2] +
-    pierhead[2] +
-    atgrade[2] +
-    atgrade[2] +
-    deck[2] +
-    pierwall[2];
-
-  // Others
-  /// incomplete
-  const total_incomp_others =
-    boredpile[3] +
-    pilecap[3] +
-    piercolumn[3] +
-    pierhead[3] +
-    atgrade[3] +
-    deck[3] +
-    pierwall[3];
-
-  const total_comp_others =
-    boredpile[4] +
-    pilecap[4] +
-    piercolumn[4] +
-    pierhead[4] +
-    atgrade[4] +
-    deck[4] +
-    pierwall[4];
-
-  const progress = ((total_comp / total_all) * 100).toFixed(1);
-
-  const data = [
-    {
-      category: viatypes[0].category,
-      comp: boredpile[1],
-      incomp: boredpile[0],
-      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Pile_Logo.svg",
-    },
-    {
-      category: viatypes[1].category,
-      comp: pilecap[1],
-      incomp: pilecap[0],
-      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Pilecap_Logo.svg",
-    },
-    {
-      category: viatypes[2].category,
-      comp: piercolumn[1],
-      incomp: piercolumn[0],
-      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Pier_Logo.svg",
-    },
-    {
-      category: viatypes[3].category,
-      comp: pierhead[1],
-      incomp: pierhead[0],
-      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Pierhead_Logo.svg",
-    },
-    {
-      category: viatypes[4].category,
-      comp: deck[1],
-      incomp: deck[0],
-      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Precast_Logo.svg",
-    },
-    {
-      category: viatypes[5].category,
-      comp: atgrade[1] + atgrade2[1],
-      incomp: atgrade[0] + atgrade2[0],
-      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Precast_Logo.svg",
-    },
-    {
-      category: viatypes[6].category,
-      comp: pierwall[1],
-      incomp: pierwall[0],
-      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Precast_Logo.svg",
-    },
-    {
-      category: viatypes[7].category,
-      comp: total_comp_others,
-      incomp: total_incomp_others,
-      icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_All_Logo.svg",
-    },
-  ];
+  //--- Resolve Promise all
+  const data = await Promise.all(data0);
+  const progress =
+    total_all > 0 ? ((total_comp / total_all) * 100).toFixed(1) : "0.0";
 
   return [data, total_all, progress];
 }
 
-export async function generateChartData(contractp: any) {
-  const total_boredpile_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 1 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_boredpile_incomp",
-    statisticType: "sum",
+//--- Multipatch Chart Data generation
+export async function chartDataM(
+  contractp: any,
+  types: any,
+  layer: any,
+  statusstate: any,
+) {
+  //--- types: include 'others'. Each main type may have others (types = 0)
+  const compile: any = [];
+
+  //--- Main statistics
+  types.map((type: any) => {
+    statusstate.map((status: any) => {
+      const temp = new StatisticDefinition({
+        onStatisticField: `CASE WHEN (${type_field_layer} = ${type} and Status = ${status}) THEN 1 ELSE 0 END`,
+        outStatisticFieldName: `viaduct_stats${type}${status}`,
+        statisticType: "sum",
+      });
+      compile.push(temp);
+    });
   });
 
-  const total_boredpile_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 1 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_boredpile_comp",
-    statisticType: "sum",
+  //--- Query
+  const query = new Query();
+  query.outStatistics = compile;
+
+  const expression = queryExpression({
+    contractcp: contractp,
   });
-
-  const total_pilecap_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 2 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pilecap_incomp",
-    statisticType: "sum",
-  });
-
-  const total_pilecap_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 2 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pilecap_comp",
-    statisticType: "sum",
-  });
-
-  const total_pier_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 3 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pier_incomp",
-    statisticType: "sum",
-  });
-
-  const total_pier_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 3 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pier_comp",
-    statisticType: "sum",
-  });
-
-  const total_pierhead_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 4 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pierhead_incomp",
-    statisticType: "sum",
-  });
-
-  const total_pierhead_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 4 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_pierhead_comp",
-    statisticType: "sum",
-  });
-
-  const total_precast_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 5 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_precast_incomp",
-    statisticType: "sum",
-  });
-
-  const total_precast_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 5 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_precast_comp",
-    statisticType: "sum",
-  });
-
-  const total_atgrade_incomp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 7 and Status = 1) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_atgrade_incomp",
-    statisticType: "sum",
-  });
-
-  const total_atgrade_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN (Type = 7 and Status = 4) THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_atgrade_comp",
-    statisticType: "sum",
-  });
-
-  // Query
-  const query = viaductLayer.createQuery();
-  query.outStatistics = [
-    total_boredpile_incomp,
-    total_boredpile_comp,
-    total_pilecap_incomp,
-    total_pilecap_comp,
-    total_pier_incomp,
-    total_pier_comp,
-    total_pierhead_incomp,
-    total_pierhead_comp,
-    total_precast_incomp,
-    total_precast_comp,
-    total_atgrade_incomp,
-    total_atgrade_comp,
-  ];
-
-  // Query
-  const expression = "CP = '" + contractp + "'";
-  pierNoLayer.definitionExpression = expression;
   query.where = expression;
-  viaductLayer.definitionExpression = expression;
-
-  return viaductLayer.queryFeatures(query).then((response: any) => {
-    const stats = response.features[0].attributes;
-    const pile_incomp = stats.total_boredpile_incomp;
-    const pile_comp = stats.total_boredpile_comp;
-    const pilecap_incomp = stats.total_pilecap_incomp;
-    const pilecap_comp = stats.total_pilecap_comp;
-    const pier_incomp = stats.total_pier_incomp;
-    const pier_comp = stats.total_pier_comp;
-    const pierhead_incomp = stats.total_pierhead_incomp;
-    const pierhead_comp = stats.total_pierhead_comp;
-    const precast_incomp = stats.total_precast_incomp;
-    const precast_comp = stats.total_precast_comp;
-    const atgrade_incomp = stats.total_atgrade_incomp;
-    const atgrade_comp = stats.total_atgrade_comp;
-
-    const data = [
-      {
-        category: viatypes[0].category,
-        comp: pile_comp,
-        incomp: pile_incomp,
-        icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Pile_Logo.svg",
-      },
-      {
-        category: viatypes[1].category,
-        comp: pilecap_comp,
-        incomp: pilecap_incomp,
-        icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Pilecap_Logo.svg",
-      },
-      {
-        category: viatypes[2].category,
-        comp: pier_comp,
-        incomp: pier_incomp,
-        icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Pier_Logo.svg",
-      },
-      {
-        category: viatypes[3].category,
-        comp: pierhead_comp,
-        incomp: pierhead_incomp,
-        icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Pierhead_Logo.svg",
-      },
-      {
-        category: viatypes[4].category,
-        comp: precast_comp,
-        incomp: precast_incomp,
-        icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Precast_Logo.svg",
-      },
-      {
-        category: viatypes[5].category,
-        comp: atgrade_comp,
-        incomp: atgrade_incomp,
-        icon: "https://EijiGorilla.github.io/Symbols/Viaduct_Images/Viaduct_Precast_Logo.svg",
-      },
-    ];
-    return data;
+  queryDefinitionExpression({
+    queryExpression: expression,
+    featureLayer: [pierNoLayer, viaductLayer],
   });
+
+  //--- Query features using statistics definitions
+  const qStats = layer?.queryFeatures(query).then(async (response: any) => {
+    const stats = response.features[0].attributes;
+    const incomp = stats[compile[0].outStatisticFieldName];
+    const ongoing = stats[compile[1].outStatisticFieldName];
+    const comp = stats[compile[2].outStatisticFieldName];
+    const total = incomp + ongoing + comp;
+    return [incomp, ongoing, comp, total];
+  });
+
+  return qStats;
 }
 
-export async function generateTotalProgress(contractp: any) {
-  const total_viaduct_number = new StatisticDefinition({
-    onStatisticField: "uniqueID",
-    outStatisticFieldName: "total_viaduct_number",
-    statisticType: "count",
+export async function chartDataForMultipatch(
+  contractcp: any,
+  via_types_chosen: any,
+  layers: any,
+  statusstate: any,
+) {
+  let total_comp = 0;
+  let total_all = 0;
+  const data0 = via_types_chosen.map(async (type: any, index: any) => {
+    //--- Extract type value and icon from the sorce list
+    const type_matched = viatypes.find((item) => item.category === type);
+
+    //--- Calculate statistics
+    const stats = await chartDataM(
+      contractcp,
+      [type_matched?.value],
+      layers[index],
+      statusstate,
+    );
+
+    //--- Compute total numbers for completed and grand total
+    total_comp += stats[1];
+    total_all += stats[2];
+    return Object.assign({
+      category: type,
+      comp: stats[2],
+      incomp: stats[0],
+      ongoing: stats[1],
+      icon: type_matched?.icon,
+    });
   });
 
-  const total_viaduct_comp = new StatisticDefinition({
-    onStatisticField: "CASE WHEN Status = 4 THEN 1 ELSE 0 END",
-    outStatisticFieldName: "total_viaduct_comp",
-    statisticType: "sum",
-  });
+  //--- Resolve Promise all
+  const data = await Promise.all(data0);
+  const progress =
+    total_all > 0 ? ((total_comp / total_all) * 100).toFixed(1) : "0.0";
 
-  const query = viaductLayer.createQuery();
-  const defaultExpression = "CP = 'S-01'";
-  const expression = "CP = '" + contractp + "'";
-
-  if (!contractp) {
-    query.where = defaultExpression;
-  } else {
-    query.where = expression;
-  }
-  query.outStatistics = [total_viaduct_number, total_viaduct_comp];
-
-  return viaductLayer.queryFeatures(query).then((response: any) => {
-    const stats = response.features[0].attributes;
-    const comp = stats.total_viaduct_comp;
-    const total = stats.total_viaduct_number;
-    const progress = ((comp / total) * 100).toFixed(1);
-
-    return [total, comp, progress];
-  });
+  return [data, total_all, progress];
 }
 
 export async function timeSeriesChartData(contractp: any) {
@@ -861,223 +935,53 @@ export async function defineActions(event: any) {
     : (item.visible = true);
 }
 
-// Visibility of sublayers
-/// Visibility when CP is changed:
-type layerVisibilityContractcpType = {
-  visibleLayers: [
-    SceneLayer | any,
-    BuildingSceneLayer?,
-    BuildingSceneLayer?,
-    BuildingSceneLayer?,
-    BuildingSceneLayer?,
-  ];
-  invisibleLayers: [
-    SceneLayer | any,
-    BuildingSceneLayer?,
-    BuildingSceneLayer?,
-    BuildingSceneLayer?,
-    BuildingSceneLayer?,
-  ];
-};
-
-export const visibilitySublayersContractcp = ({
-  visibleLayers,
-  invisibleLayers,
-}: layerVisibilityContractcpType) => {
-  visibleLayers?.map((layer: any) => {
-    layer.visible = true;
-  });
-
-  invisibleLayers.map((layer: any) => {
-    layer.visible = false;
-  });
-};
-
-/// Visibility when layerView is changed in charts:
-type resetSublayersTypeForLayerView = {
-  stFoundationLayer?: BuildingComponentSublayer | any;
-  stFramingLayer?: BuildingComponentSublayer | any;
-  piersLayer?: BuildingComponentSublayer | any;
-  decksLayer?: BuildingComponentSublayer | any;
-  bearingsLayer?: BuildingComponentSublayer | any;
-  specialtyEquipmentLayer?: BuildingComponentSublayer | any;
-  buildingLayer?: BuildingSceneLayer | any;
-  viaductLayer?: SceneLayer | any;
-};
-
-export const resetSublayersInLayerView = ({
-  stFoundationLayer,
-  stFramingLayer,
-  piersLayer,
-  decksLayer,
-  bearingsLayer,
-  specialtyEquipmentLayer,
-  buildingLayer,
-}: resetSublayersTypeForLayerView) => {
-  decksLayer.definitionExpression = "1=1";
-  bearingsLayer.definitionExpression = "1=1";
-  piersLayer.definitionExpression = "1=1";
-  stFoundationLayer.definitionExpression = "1=1";
-  stFoundationLayer.visible = true;
-  bearingsLayer.visible = true;
-  piersLayer.visible = true;
-  decksLayer.visible = true;
-  stFramingLayer.visible = false;
-  specialtyEquipmentLayer.visible = false;
-  buildingLayer.visible = true;
-};
-
 // Set invisible layers
-type sublayerVisibilityType = {
-  contractcp: string;
-  categorySelected: string;
-  expression: any;
-  stFoundationLayer?: BuildingComponentSublayer | any;
-  stFramingLayer?: BuildingComponentSublayer | any;
-  piersLayer?: BuildingComponentSublayer | any;
-  decksLayer?: BuildingComponentSublayer | any;
-  bearingsLayer?: BuildingComponentSublayer | any;
-  specialtyEquipmentLayer?: BuildingComponentSublayer | any;
-};
-
-export const sublayersVisibility = ({
-  contractcp,
-  categorySelected,
-  expression,
-  stFoundationLayer,
-  stFramingLayer,
-  piersLayer,
-  decksLayer,
-  bearingsLayer,
-  specialtyEquipmentLayer,
-}: sublayerVisibilityType) => {
-  if (contractcp === "S-01" || contractcp === "S-06") {
-    // Bored Pile & Pile Cap
-    if (
-      categorySelected === viatypes[0].category ||
-      categorySelected === viatypes[1].category
-    ) {
-      stFoundationLayer.definitionExpression = expression;
-      stFoundationLayer.visible = true;
-      stFramingLayer.visible = false;
-      bearingsLayer.visible = false;
-      piersLayer.visible = false;
-      decksLayer.visible = false;
-      specialtyEquipmentLayer.visible = false;
-
-      // Pier Column, Pier Head, and Noiese Barrier (Pier Wall)
-    } else if (
-      categorySelected === viatypes[2].category ||
-      categorySelected === viatypes[3].category ||
-      categorySelected === viatypes[6].category
-    ) {
-      piersLayer.definitionExpression = expression;
-      stFoundationLayer.visible = false;
-      stFramingLayer.visible = false;
-      bearingsLayer.visible = false;
-      piersLayer.visible = true;
-      decksLayer.visible = false;
-      specialtyEquipmentLayer.visible = false;
-
-      // Precast
-    } else if (categorySelected === viatypes[4].category) {
-      decksLayer.definitionExpression = expression;
-      stFoundationLayer.visible = false;
-      stFramingLayer.visible = false;
-      bearingsLayer.visible = false;
-      piersLayer.visible = false;
-      decksLayer.visible = true;
-      specialtyEquipmentLayer.visible = false;
-
-      // At Grade
-    } else if (categorySelected === viatypes[5].category) {
-      stFoundationLayer.definitionExpression = expression;
-      decksLayer.definitionExpression = expression;
-      stFoundationLayer.visible = true;
-      stFramingLayer.visible = false;
-      bearingsLayer.visible = false;
-      piersLayer.visible = false;
-      decksLayer.visible = true;
-      specialtyEquipmentLayer.visible = false;
-
-      // Others
-    } else if (categorySelected === "Others") {
-      decksLayer.definitionExpression = expression;
-      bearingsLayer.definitionExpression = expression;
-      piersLayer.definitionExpression = expression;
-      stFoundationLayer.definitionExpression = expression;
-      decksLayer.visible = true;
-      bearingsLayer.visible = true;
-      piersLayer.visible = true;
-      stFoundationLayer.visible = true;
-      stFramingLayer.visible = false; // not part of monitoring
-      specialtyEquipmentLayer.visible = false; // not part of monitoring
-    }
-  }
-};
-
-// Highlight Layerview query
-type layerViewQueryProps = {
-  pointLayer1?: FeatureLayer;
-  pointLayer2?: FeatureLayer;
-  lineLayer1?: FeatureLayer;
-  lineLayer2?: FeatureLayer;
-  polygonLayer?: FeatureLayer | SceneLayer;
-  qExpression?: any;
-  view: any;
-};
-
-export const highlightSelectedUtil = (
-  featureLayer: any,
-  qExpression: any,
-  view: any,
+export const s01_sublayersVisibility = (
+  categorySelected: any,
+  expression: any,
 ) => {
-  const query = featureLayer.createQuery();
-  query.where = qExpression;
-  let highlightSelect: any;
-
-  view?.whenLayerView(featureLayer).then((layerView: any) => {
-    featureLayer?.queryObjectIds(query).then((results: any) => {
-      const objID = results;
-
-      // const queryExt = new Query({
-      //   objectIds: objID,
-      // });
-
-      // try {
-      //   featureLayer?.queryExtent(queryExt).then((result: any) => {
-      //     if (result?.extent) {
-      //       view?.goTo(result.extent);
-      //     }
-      //   });
-      // } catch (error) {
-      //   console.error("Error querying extent for point layer:", error);
-      // }
-
-      highlightSelect && highlightSelect.remove();
-      highlightSelect = layerView.highlight(objID);
-    });
-
-    layerView.filter = new FeatureFilter({
-      where: qExpression,
-    });
-
-    // For initial state, we need to add this
-    view?.on("click", () => {
-      layerView.filter = new FeatureFilter({
-        where: undefined,
-      });
-      highlightSelect && highlightSelect.remove();
-    });
-  });
-};
-
-export const polygonViewQueryFeatureHighlight = ({
-  polygonLayer,
-  qExpression,
-  view,
-}: layerViewQueryProps) => {
-  highlightSelectedUtil(polygonLayer, qExpression, view);
+  if (
+    categorySelected === viatypes[0].category ||
+    categorySelected === viatypes[1].category
+  ) {
+    stFoundationLayer.definitionExpression = expression;
+    stFoundationLayer.visible = true;
+    stFramingLayer.visible = false;
+    bearingsLayer.visible = false;
+    piersLayer.visible = false;
+    decksLayer.visible = false;
+  } else if (
+    categorySelected === viatypes[2].category ||
+    categorySelected === viatypes[3].category ||
+    categorySelected === viatypes[6].category
+  ) {
+    piersLayer.definitionExpression = expression;
+    piersLayer.visible = true;
+    stFramingLayer.visible = false;
+    bearingsLayer.visible = false;
+    stFoundationLayer.visible = false;
+    decksLayer.visible = false;
+    specialtyEquipmentLayer.visible = false;
+  } else if (categorySelected === viatypes[4].category) {
+    decksLayer.definitionExpression = expression;
+    decksLayer.visible = true;
+    specialtyEquipmentLayer.visible = false;
+    bearingsLayer.visible = false;
+    stFoundationLayer.visible = false;
+    piersLayer.visible = false;
+    stFramingLayer.visible = false;
+  } else if (categorySelected === "Others") {
+    decksLayer.definitionExpression = expression;
+    bearingsLayer.definitionExpression = expression;
+    piersLayer.definitionExpression = expression;
+    stFoundationLayer.definitionExpression = expression;
+    decksLayer.visible = true;
+    bearingsLayer.visible = true;
+    piersLayer.visible = true;
+    stFoundationLayer.visible = true;
+    stFramingLayer.visible = false; // not part of monitoring
+    specialtyEquipmentLayer.visible = false; // not part of monitoring
+  }
 };
 
 // Timeslider reset

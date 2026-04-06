@@ -8,8 +8,9 @@ import {
   CalciteSegmentedControl,
   CalciteSegmentedControlItem,
 } from "@esri/calcite-components-react";
-import { contractPackage } from "../Query";
+
 import { MyContext } from "../contexts/MyContext";
+import { contractPackage } from "../uniqueValues";
 
 export default function StationSegmentedList() {
   const { updateContractPackage } = use(MyContext);

@@ -15,8 +15,13 @@ import {
 import SolidEdges3D from "@arcgis/core/symbols/edges/SolidEdges3D";
 import BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 import CustomContent from "@arcgis/core/popup/content/CustomContent";
-import { viatypes } from "./Query";
+
 import PopupTemplate from "@arcgis/core/PopupTemplate";
+import {
+  viaductStatusColorForLayer,
+  viaductStatusLabel,
+  viatypes,
+} from "./uniqueValues";
 
 /* Standalone table for Dates */
 export const dateTable = new FeatureLayer({
@@ -252,51 +257,30 @@ export const launchingGirderLayer = new FeatureLayer({
 });
 
 // * Viaduct * //
-const colorStatus = [
-  [225, 225, 225, 0.1], // To be Constructed (white)
-  [211, 211, 211, 0.5], // Under Construction
-  [255, 0, 0, 0.8], // Delayed
-  [0, 112, 255, 0.8], // Completed
-];
-
+const viaductUniqueValueInfos = viaductStatusLabel.map(
+  (status: any, index: any) => {
+    return Object.assign({
+      value: index + 1,
+      label: status,
+      symbol: new MeshSymbol3D({
+        symbolLayers: [
+          new FillSymbol3DLayer({
+            material: {
+              color: viaductStatusColorForLayer[index],
+              colorMixMode: "replace",
+            },
+            edges: new SolidEdges3D({
+              color: [225, 225, 225, 0.3],
+            }),
+          }),
+        ],
+      }),
+    });
+  },
+);
 const viaduct_renderer = new UniqueValueRenderer({
   field: "Status",
-  uniqueValueInfos: [
-    {
-      value: 1,
-      label: "To be Constructed",
-      symbol: new MeshSymbol3D({
-        symbolLayers: [
-          new FillSymbol3DLayer({
-            material: {
-              color: colorStatus[0],
-              colorMixMode: "replace",
-            },
-            edges: new SolidEdges3D({
-              color: [225, 225, 225, 0.3],
-            }),
-          }),
-        ],
-      }),
-    },
-    {
-      value: 4,
-      label: "Completed",
-      symbol: new MeshSymbol3D({
-        symbolLayers: [
-          new FillSymbol3DLayer({
-            material: {
-              color: colorStatus[3],
-              colorMixMode: "replace",
-            },
-            edges: new SolidEdges3D({
-              color: [225, 225, 225, 0.3],
-            }),
-          }),
-        ],
-      }),
-    },
-  ],
+  uniqueValueInfos: viaductUniqueValueInfos,
 });
 
 export const viaductLayer = new SceneLayer({
@@ -312,8 +296,7 @@ export const viaductLayer = new SceneLayer({
   title: "Viaduct",
   labelsVisible: false,
   renderer: viaduct_renderer,
-  // definitionExpression: "CP <> 'S-01'",
-  definitionExpression: "CP NOT IN ('S-01', 'S-06')",
+  definitionExpression: "CP <> 'S-01'",
   popupTemplate: {
     title: "<p>{PierNumber}</p>",
     lastEditInfoEnabled: false,
@@ -330,7 +313,16 @@ export const viaductLayer = new SceneLayer({
             fieldName: "CP",
           },
           {
+            fieldName: "PierNumber",
+            label: "Pier Number",
+          },
+          {
+            fieldName: "PileNo",
+            label: "Pile No",
+          },
+          {
             fieldName: "uniqueID",
+            label: "uniqueID",
           },
         ],
       },
@@ -405,40 +397,7 @@ const popupTemplate = new PopupTemplate({
 
 const renderer_revit = new UniqueValueRenderer({
   field: "Status",
-  uniqueValueInfos: [
-    {
-      value: 1,
-      symbol: new MeshSymbol3D({
-        symbolLayers: [
-          new FillSymbol3DLayer({
-            material: {
-              color: colorStatus[0],
-              colorMixMode: "replace",
-            },
-            edges: new SolidEdges3D({
-              color: [225, 225, 225, 0.3],
-            }),
-          }),
-        ],
-      }),
-    },
-    {
-      value: 4,
-      symbol: new MeshSymbol3D({
-        symbolLayers: [
-          new FillSymbol3DLayer({
-            material: {
-              color: colorStatus[3],
-              colorMixMode: "replace",
-            },
-            edges: new SolidEdges3D({
-              color: [225, 225, 225, 0.3],
-            }),
-          }),
-        ],
-      }),
-    },
-  ],
+  uniqueValueInfos: viaductUniqueValueInfos,
 });
 
 const rendererNotMonitoring = new SimpleRenderer({
@@ -463,13 +422,13 @@ const rendererNotMonitoring = new SimpleRenderer({
 /* Building Scene Layer for station structures */
 export const buildingLayer = new BuildingSceneLayer({
   portalItem: {
-    id: "5827fee320924214999b7982ae648048",
+    id: "d700fbaf25b04fe8a921fcfa144cb158",
     portal: {
       url: "https://gis.railway-sector.com/portal",
     },
   },
   legendEnabled: false,
-  title: "Viaduct (S-01)",
+  title: "S01 Viaduct (LOD: 350)",
 });
 
 // Discipline: Architectural
@@ -553,7 +512,7 @@ buildingLayer.when(() => {
 //----------------------------------------------------//
 export const buildingLayer_s06 = new BuildingSceneLayer({
   portalItem: {
-    id: "b416e23b26f34ae788ade796c6008566",
+    id: "1a0404c00e76438796c536de64248cb2",
     portal: {
       url: "https://gis.railway-sector.com/portal",
     },

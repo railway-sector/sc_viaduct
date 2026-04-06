@@ -16,11 +16,13 @@ import "@arcgis/map-components/components/arcgis-layer-list";
 import "@arcgis/map-components/components/arcgis-legend";
 import "@arcgis/map-components/components/arcgis-direct-line-measurement-3d";
 import "@arcgis/map-components/components/arcgis-area-measurement-3d";
+import "@arcgis/map-components/components/arcgis-time-slider";
 import { defineActions, layersTimeSliderReset } from "../Query";
 import TimeSlider from "./TimeSlider";
 import {
   bearingsLayer,
   decksLayer,
+  pierNoLayer,
   piersLayer,
   specialtyEquipmentLayer,
   stFoundationLayer,
@@ -48,7 +50,8 @@ function ActionPanel() {
 
       if (timeSlider) {
         timeSlider.timeExtent = null;
-        layersTimeSliderReset(stFoundationLayer, "DocUpdate", "2026-3-1");
+
+        layersTimeSliderReset(stFoundationLayer, "DocUpdate", "2026-4-1");
         layersTimeSliderReset(piersLayer, "DocUpdate", "2026-3-1");
         layersTimeSliderReset(bearingsLayer, "DocUpdate", "2026-3-1");
         layersTimeSliderReset(specialtyEquipmentLayer, "DocUpdate", "2026-3-1");
@@ -118,7 +121,7 @@ function ActionPanel() {
             }}
           ></CalciteAction>
 
-          <CalciteAction
+          {/* <CalciteAction
             data-action-id="timeslider"
             icon="sliders-horizontal"
             text="Handed-Over Lots"
@@ -127,7 +130,7 @@ function ActionPanel() {
               setNextWidget(event.target.id);
               setActiveWidget(nextWidget === activeWidget ? null : nextWidget);
             }}
-          ></CalciteAction>
+          ></CalciteAction> */}
 
           <CalciteAction
             data-action-id="information"

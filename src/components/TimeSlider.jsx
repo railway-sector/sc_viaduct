@@ -1,4 +1,6 @@
 import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
+import "@esri/calcite-components/dist/components/calcite-select";
+import "@esri/calcite-components/dist/components/calcite-option";
 import {
   stFoundationLayer,
   piersLayer,
@@ -8,12 +10,18 @@ import {
   stFramingLayer,
 } from "../layers";
 import { layersTimeSliderReset } from "../Query";
+import { primaryLabelColor, timeSliderParameters } from "../uniqueValues";
+import "@arcgis/map-components/components/arcgis-time-slider";
+import { MyContext } from "../contexts/MyContext";
+import { use } from "react";
 
 export default function TimeSlider() {
+  const { updateNewTimeSliderparam, newTimeSliderparam } = use(MyContext);
   const arcgisScene = document.querySelector("arcgis-scene");
 
   arcgisScene?.viewOnReady(() => {
     const timeSlider = document.querySelector("arcgis-time-slider");
+
     const start = new Date(2024, 1, 1);
     timeSlider.fullTimeExtent = {
       start: start,
@@ -39,6 +47,7 @@ export default function TimeSlider() {
           const new_date = `${year}-${month}-${day}`;
 
           // Filter
+          // "DocUpdate" will be newTimeSliderparam
           layersTimeSliderReset(stFoundationLayer, "DocUpdate", new_date);
           layersTimeSliderReset(piersLayer, "DocUpdate", new_date);
           layersTimeSliderReset(bearingsLayer, "DocUpdate", new_date);
@@ -53,11 +62,26 @@ export default function TimeSlider() {
   return (
     <>
       <div>
+        <calcite-select
+          style={{ "--calcite-select-text-color": primaryLabelColor }}
+          oncalciteSelectChange={(event) =>
+            updateNewTimeSliderparam(event.srcElement.value)
+          }
+        >
+          {timeSliderParameters.map((param, index) => {
+            return (
+              <calcite-option key={index} value={param}>
+                {param}
+              </calcite-option>
+            );
+          })}
+        </calcite-select>
+
         <arcgis-time-slider
           referenceElement="arcgis-scene"
           slot="bottom-right"
           layout="auto"
-          mode="time-window"
+          mode="cumulative-from-start"
         ></arcgis-time-slider>
       </div>
     </>

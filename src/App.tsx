@@ -16,22 +16,17 @@ import ActionPanel from "./components/ActionPanel";
 import Header from "./components/Header";
 import UndergroundSwitch from "./components/UndergroundSwitch";
 import Chart from "./components/Chart";
-import { contractPackage } from "./Query";
-import { buildingLayer, buildingLayer_s06 } from "./layers";
+import { buildingLayer } from "./layers";
 import { MyContext } from "./contexts/MyContext";
+import { contractPackage, timeSliderParameters } from "./uniqueValues";
 
 function App() {
   const [loggedInState, setLoggedInState] = useState<boolean>(false);
   const [buildingLayerLoaded, setBuildingLayerLoaded] = useState<any>(); // 'loaded'
-  const [buildingLayerLoaded_s06, setBuildingLayerLoaded_s06] = useState<any>();
 
   useEffect(() => {
     buildingLayer.load().then(() => {
       setBuildingLayerLoaded(buildingLayer.loadStatus);
-    });
-
-    buildingLayer_s06.load().then(() => {
-      setBuildingLayerLoaded_s06(buildingLayer_s06.loadStatus);
     });
   });
 
@@ -68,10 +63,28 @@ function App() {
   const [contractpackages, setContractpackages] = useState<any>(
     contractPackage[0],
   );
+  const [newTimeSliderparam, setNewTimeSliderparam] = useState<any>(
+    timeSliderParameters[0],
+  );
+  const [chartPanelwidth, setChartPanelwidth] = useState<any>();
+  const [layersRevit, setLayersRevit] = useState<any>();
 
   const updateContractPackage = (newContractpackage: any) => {
     setContractpackages(newContractpackage);
   };
+
+  const updateNewTimeSliderparam = (newParam: any) => {
+    setNewTimeSliderparam(newParam);
+  };
+
+  const updateChartPanelwidth = (newWidth: any) => {
+    setChartPanelwidth(newWidth);
+  };
+
+  const updateLayersRevit = (newRevit: any) => {
+    setLayersRevit(newRevit);
+  };
+
   return (
     <>
       {loggedInState === true ? (
@@ -79,12 +92,22 @@ function App() {
           <CalciteShell
             style={{ scrollbarWidth: "thin", scrollbarColor: "#888 #555" }}
           >
-            <MyContext value={{ contractpackages, updateContractPackage }}>
+            <MyContext
+              value={{
+                contractpackages,
+                newTimeSliderparam,
+                chartPanelwidth,
+                layersRevit,
+                updateContractPackage,
+                updateNewTimeSliderparam,
+                updateChartPanelwidth,
+                updateLayersRevit,
+              }}
+            >
               <ActionPanel />
               <UndergroundSwitch />
               <MapDisplay />
-              {(buildingLayerLoaded === "loaded" ||
-                buildingLayerLoaded_s06 === "loaded") && <Chart />}
+              {buildingLayerLoaded === "loaded" && <Chart />}
               <Header />
             </MyContext>
           </CalciteShell>
